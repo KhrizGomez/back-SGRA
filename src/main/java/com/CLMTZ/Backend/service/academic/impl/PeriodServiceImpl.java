@@ -68,31 +68,8 @@ public class PeriodServiceImpl implements IPeriodService {
 
     @Override
     public List<String> uploadPeriods(List<PeriodLoadDTO> periodDTOs) {
-        List<String> report = new java.util.ArrayList<>();
-        for (PeriodLoadDTO dto : periodDTOs) {
-            try {
-                Period period = repository.findAll().stream()
-                    .filter(p -> p.getPeriod().equalsIgnoreCase(dto.getNombrePeriodo()))
-                    .findFirst().orElse(null);
-                if (period == null) {
-                    period = new Period();
-                    period.setPeriod(dto.getNombrePeriodo());
-                    period.setStartDate(dto.getFechaInicio());
-                    period.setEndDate(dto.getFechaFin());
-                    period.setState(true);
-                    repository.save(period);
-                    report.add("Periodo '" + dto.getNombrePeriodo() + "' creado");
-                } else {
-                    period.setStartDate(dto.getFechaInicio());
-                    period.setEndDate(dto.getFechaFin());
-                    repository.save(period);
-                    report.add("Periodo '" + dto.getNombrePeriodo() + "' actualizado");
-                }
-            } catch (Exception e) {
-                report.add("Periodo '" + dto.getNombrePeriodo() + "': ERROR (" + e.getCause().getMessage() + ")");
-            }
-        }
-        return report;
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'uploadPeriods'");
     }
 
     

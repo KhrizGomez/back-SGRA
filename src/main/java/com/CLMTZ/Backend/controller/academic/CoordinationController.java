@@ -14,6 +14,7 @@ import com.CLMTZ.Backend.dto.academic.CoordinationDTO;
 import com.CLMTZ.Backend.dto.academic.EnrollmentDetailLoadDTO;
 import com.CLMTZ.Backend.dto.academic.StudentLoadDTO;
 import com.CLMTZ.Backend.dto.academic.SubjectLoadDTO;
+import com.CLMTZ.Backend.dto.academic.SyllabiLoadDTO;
 import com.CLMTZ.Backend.dto.academic.TeachingDTO;
 import com.CLMTZ.Backend.dto.ai.AIValidationRequest;
 import com.CLMTZ.Backend.dto.ai.AIValidationResult;
@@ -261,4 +262,5 @@ public class CoordinationController {
                             .build());
         }
     }
+    
 }

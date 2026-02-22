@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -515,143 +516,22 @@ public class ExcelHelper {
     private static LocalTime parseExcelTime(String timeStr) {
         if (timeStr == null || timeStr.trim().isEmpty()) return null;
         timeStr = timeStr.trim();
-        if (timeStr.matches("^\\d:\\d{2}.*")) timeStr = "0" + timeStr;
-        if (timeStr.length() > 5) timeStr = timeStr.substring(0, 5);
+        
+        // Si la hora viene como "8:00" (1 dígito : 2 dígitos), le agregamos el '0' al inicio
+        if (timeStr.matches("^\\d:\\d{2}.*")) {
+            timeStr = "0" + timeStr;
+        }
+        
+        // Si la hora trae segundos como "08:00:00", nos quedamos solo con los primeros 5 caracteres "08:00"
+        if (timeStr.length() > 5) {
+            timeStr = timeStr.substring(0, 5);
+        }
+        
         return LocalTime.parse(timeStr);
     }
 
-    // =====================================================================
-    // MÉTODO GENÉRICO PARA VALIDACIÓN IA
-    // Convierte cualquier Excel a lista de Maps para análisis por IA
-    // =====================================================================
-
-    /**
-     * Convierte un archivo Excel a una lista de Maps genéricos para validación IA.
-     * Detecta automáticamente la fila de encabezados y convierte los datos.
-     *
-     * @param is InputStream del archivo Excel
-     * @param loadType tipo de carga para determinar formato ("students", "teachers", "registrations")
-     * @return Lista de mapas donde cada mapa representa una fila con clave=columna, valor=dato
-     */
-    public static List<Map<String, Object>> excelToGenericMap(InputStream is, String loadType) {
-        try (Workbook workbook = WorkbookFactory.create(is)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            List<Map<String, Object>> result = new ArrayList<>();
-
-            // Determinar fila de encabezados según tipo de carga
-            int headerRowIndex = getHeaderRowIndex(loadType);
-            int dataStartIndex = headerRowIndex + 1;
-
-            Row headerRow = sheet.getRow(headerRowIndex);
-            if (headerRow == null) {
-                return result;
-            }
-
-            // Obtener nombres de columnas
-            List<String> columnNames = new ArrayList<>();
-            for (int c = 0; c < headerRow.getLastCellNum(); c++) {
-                String colName = getCellValue(headerRow, c);
-                columnNames.add(colName.isEmpty() ? "columna_" + c : normalizeColumnName(colName));
-            }
-
-            // Procesar filas de datos
-            for (int i = dataStartIndex; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null || isRowEmpty(row)) continue;
-
-                Map<String, Object> rowMap = new LinkedHashMap<>();
-                rowMap.put("_rowNumber", i + 1); // Número de fila en Excel (1-based)
-
-                for (int c = 0; c < columnNames.size(); c++) {
-                    String colName = columnNames.get(c);
-                    String value = getCellValue(row, c);
-                    rowMap.put(colName, value);
-                }
-
-                // Agregar campos derivados según tipo
-                enrichRowData(rowMap, loadType);
-
-                result.add(rowMap);
-            }
-
-            return result;
-        } catch (IOException e) {
-            throw new RuntimeException("Error al parsear Excel para validación IA: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Determina el índice de la fila de encabezados según el tipo de carga.
-     */
-    private static int getHeaderRowIndex(String loadType) {
-        return switch (loadType) {
-            case "students" -> 2;  // Fila 3 (0-indexed = 2)
-            case "teachers" -> 1;  // Fila 2 (0-indexed = 1)
-            case "registrations" -> 0; // Primera fila
-            default -> 0;
-        };
-    }
-
-    /**
-     * Normaliza el nombre de columna para usar como clave.
-     */
-    private static String normalizeColumnName(String colName) {
-        if (colName == null) return "";
-        // Quitar acentos y convertir a minúsculas, reemplazar espacios por guiones bajos
-        return colName.trim()
-                .toLowerCase()
-                .replace("á", "a").replace("é", "e").replace("í", "i")
-                .replace("ó", "o").replace("ú", "u").replace("ñ", "n")
-                .replaceAll("[^a-z0-9]", "_")
-                .replaceAll("_+", "_")
-                .replaceAll("^_|_$", "");
-    }
-
-    /**
-     * Enriquece los datos de la fila con campos derivados para facilitar validación.
-     */
-    private static void enrichRowData(Map<String, Object> row, String loadType) {
-        switch (loadType) {
-            case "students" -> {
-                // Mapear nombres de columna del Excel a nombres esperados
-                if (row.containsKey("identificacion") || row.containsKey("identificaci_n")) {
-                    row.putIfAbsent("identificacion", row.getOrDefault("identificaci_n", ""));
-                }
-                if (row.containsKey("email_institucional")) {
-                    row.putIfAbsent("correo", row.get("email_institucional"));
-                }
-                if (row.containsKey("estudiante")) {
-                    String nombreCompleto = String.valueOf(row.get("estudiante"));
-                    String[] partes = splitNombreApellido(nombreCompleto, false);
-                    row.putIfAbsent("nombres", partes[0]);
-                    row.putIfAbsent("apellidos", partes[1]);
-                }
-            }
-            case "teachers" -> {
-                // Mapear campos del Excel de docentes
-                if (row.containsKey("profesor")) {
-                    String nombreCompleto = String.valueOf(row.get("profesor"));
-                    row.putIfAbsent("nombreCompleto", nombreCompleto);
-                    String[] partes = splitNombreApellido(nombreCompleto, true);
-                    row.putIfAbsent("apellidos", partes[0]);
-                    row.putIfAbsent("nombres", partes[1]);
-                }
-                if (row.containsKey("carrera")) {
-                    row.putIfAbsent("carreraTexto", row.get("carrera"));
-                }
-                if (row.containsKey("materia")) {
-                    row.putIfAbsent("asignaturaTexto", row.get("materia"));
-                }
-                if (row.containsKey("paralelo")) {
-                    row.putIfAbsent("paraleloTexto", row.get("paralelo"));
-                }
-            }
-            case "registrations" -> {
-                // Para matrículas, mapear cédula del estudiante
-                if (row.containsKey("cedula") || row.containsKey("identificacion")) {
-                    row.putIfAbsent("cedulaEstudiante", row.getOrDefault("cedula", row.get("identificacion")));
-                }
-            }
-        }
+    public static List<Map<String, Object>> excelToGenericMap(InputStream inputStream, String loadType) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'excelToGenericMap'");
     }
 }
