@@ -54,11 +54,17 @@ public class StudentRequestController {
             if (req.getReason().trim().length() < 10) {
                 return ResponseEntity.badRequest().body(Map.of("message", "El motivo debe tener al menos 10 caracteres"));
             }
+            // Validar que sesiones grupales tengan al menos 1 participante
+            if (req.getSessionTypeId() == 2 &&
+                    (req.getParticipantIds() == null || req.getParticipantIds().isEmpty())) {
+                return ResponseEntity.badRequest().body(Map.of("message",
+                        "Para una sesión grupal debes seleccionar al menos 1 compañero"));
+            }
 
             StudentRequestCreateResponseDTO response = studentRequestService.create(req, userId, files);
             return ResponseEntity.ok(response);
 
-        } catch (IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
             String msg = extractBusinessMessage(e.getMessage());
