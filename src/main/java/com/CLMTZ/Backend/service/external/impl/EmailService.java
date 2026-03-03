@@ -6,6 +6,7 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import com.CLMTZ.Backend.dto.security.Response.EmailSettingsResponseDTO;
 import com.CLMTZ.Backend.service.external.IEmailService;
 
 import jakarta.mail.internet.MimeMessage;
@@ -17,38 +18,45 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EmailService implements IEmailService{
 
-    private String sender;
-    private String subject;
-    private String passwordApp;
-
-    public void sendGmail(String addresse, String body) {
+    public void sendEmail(EmailSettingsResponseDTO config, String addresse, String subject, String body) {
 
         try {
-
             JavaMailSenderImpl emailSender = new JavaMailSenderImpl();
 
-            emailSender.setHost("smtp.gmail.com");
-            emailSender.setPort(587);
+            emailSender.setHost(config.getServidorSmtp());
+            emailSender.setPort(config.getPuertoSmtp());
 
-            emailSender.setUsername(sender);
-            emailSender.setPassword(passwordApp);
+            emailSender.setUsername(config.getCorreoEmisor());
+            emailSender.setPassword(config.getContrasenaAplicacion());
 
             Properties props = emailSender.getJavaMailProperties();
             props.put("mail.transport.protocol", "smtp");
             props.put("mail.smtp.auth", "true");
-            props.put("mail.smtp.starttls.enable", "true");
+
+            if (config.getUsaSSL()) {
+                props.put("mail.smtp.starttls.enable", "true");
+                if (config.getPuertoSmtp() == 465) {
+                    props.put("mail.smtp.ssl.enable", "true");
+                }
+            }
 
             MimeMessage messageMime = emailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(messageMime, true);
+            MimeMessageHelper helper = new MimeMessageHelper(messageMime, true, "UTF-8");
 
             helper.setTo(addresse);
             helper.setSubject(subject);
-            helper.setText(body); //helper.setText(body, true); Si deseo enviar un html
-            helper.setFrom(sender);
+            helper.setText(body, true);
+
+            if (config.getNombreRemitente() != null && !config.getNombreRemitente().isEmpty()) {
+                helper.setFrom(config.getCorreoEmisor(), config.getNombreRemitente());
+            } else {
+                helper.setFrom(config.getCorreoEmisor());
+            }
 
             emailSender.send(messageMime);
+
         } catch (Exception e) {
-            throw new RuntimeException("Error al enviar el correo: " + e.getMessage());
+            throw new RuntimeException("Error al enviar el correo: " + e.getMessage(), e);
         }
     }
 }

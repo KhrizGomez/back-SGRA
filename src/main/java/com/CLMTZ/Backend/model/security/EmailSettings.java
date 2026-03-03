@@ -36,6 +36,18 @@ public class EmailSettings {
     @JoinColumn(name = "idusuario", foreignKey = @ForeignKey(name = "fk_configuracionemail_usuario"))
     private User userId;
 
+    @Column(name = "servidorsmtp", length = 150, nullable = false)
+    private String smtpServer;
+
+    @Column(name = "puertosmtp", nullable = false)
+    private Integer smtpPort;
+
+    @Column(name = "ssl", nullable = false)
+    private Boolean ssl;
+
+    @Column(name = "nombreremitente", length = 100, nullable = false)
+    private String senderName;
+
     @Column(name = "correoemisor", nullable = false, columnDefinition = "text")
     private String emailSender;
 

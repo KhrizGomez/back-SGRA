@@ -1,5 +1,9 @@
 package com.CLMTZ.Backend.service.external;
 
+import com.CLMTZ.Backend.dto.security.Response.EmailSettingsResponseDTO;
+
 public interface IEmailService {
-    void sendGmail(String addresse, String body);
+
+    void sendEmail(EmailSettingsResponseDTO config, String addresse, String subject, String body);
+    
 }
