@@ -1,39 +1,53 @@
 package com.CLMTZ.Backend.repository.security.custom.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Types;
+
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.repository.security.custom.IRoleManagementRoleCustomRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.ParameterMode;
-import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
 public class RoleManagementRoleCustomRepository implements IRoleManagementRoleCustomRepository{
     
-    private final EntityManager entityManager;
+    private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override
     @Transactional
     public SpResponseDTO updateRoleGRoleAssignment(String jsonAssignment){
 
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_in_up_asignacionroles");
+        String sql = "CALL seguridad.sp_in_up_asignacionroles(?, ?, ?)";
 
-        query.registerStoredProcedureParameter("p_json_asignaciones", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.setParameter("p_json_asignaciones", jsonAssignment);
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        query.execute();
+                cs.setString(1, jsonAssignment);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.registerOutParameter(2, Types.VARCHAR);
+                cs.registerOutParameter(3, Types.BOOLEAN);
 
-        return new SpResponseDTO(message, success);
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(2);
+                Boolean success = cs.getBoolean(3);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 }

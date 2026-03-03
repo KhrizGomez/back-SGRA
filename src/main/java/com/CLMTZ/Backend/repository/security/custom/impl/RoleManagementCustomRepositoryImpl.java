@@ -1,8 +1,12 @@
 package com.CLMTZ.Backend.repository.security.custom.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Types;
 import java.util.List;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,18 +17,11 @@ import com.CLMTZ.Backend.dto.security.Response.RoleListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.repository.security.custom.IRoleManagementCustomRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.ParameterMode;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
 public class RoleManagementCustomRepositoryImpl implements IRoleManagementCustomRepository{
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     private final DynamicDataSourceService dynamicDataSourceService;
 
@@ -41,49 +38,67 @@ public class RoleManagementCustomRepositoryImpl implements IRoleManagementCustom
     @Override
     @Transactional
     public SpResponseDTO createRoleManagement(String role, String description){
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_in_creargrol");
 
-        query.registerStoredProcedureParameter("p_grol", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_descripcion", String.class, ParameterMode.IN);
+        String sql = "CALL seguridad.sp_in_creargrol(?, ?, ?, ?)";
 
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.setParameter("p_grol", role);
-        query.setParameter("p_descripcion", description);
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        query.execute();
+                cs.setString(1, role);
+                cs.setString(2, description);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.registerOutParameter(3, Types.VARCHAR);
+                cs.registerOutParameter(4, Types.BOOLEAN);
 
-        return new SpResponseDTO(message, success);
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(3);
+                Boolean success = cs.getBoolean(4);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 
     @Override
     @Transactional
     public SpResponseDTO updateRoleManagement(Integer roleId, String role, String description, Boolean state){
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_up_grol");
 
-        query.registerStoredProcedureParameter("p_idgrol", Integer.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_grol", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_descripcion", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_estado", Boolean.class, ParameterMode.IN);
+        String sql = "CALL seguridad.sp_up_grol(?, ?, ?, ?, ?, ?)";
 
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.setParameter("p_idgrol", roleId);
-        query.setParameter("p_grol", role);
-        query.setParameter("p_descripcion", description);
-        query.setParameter("p_estado", state);
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        query.execute();
+                cs.setInt(1, roleId);
+                cs.setString(2, role);
+                cs.setString(3, description);
+                cs.setBoolean(4, state);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.registerOutParameter(5, Types.VARCHAR);
+                cs.registerOutParameter(6, Types.BOOLEAN);
 
-        return new SpResponseDTO(message, success);
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(5);
+                Boolean success = cs.getBoolean(6);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 
     @Override
