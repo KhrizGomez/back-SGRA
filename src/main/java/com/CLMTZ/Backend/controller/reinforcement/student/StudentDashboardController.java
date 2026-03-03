@@ -26,14 +26,14 @@ public class StudentDashboardController {
             Integer userId = ctx.getUserId();
 
             if (periodId != null && periodId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid periodId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de periodo inválido"));
             }
 
             StudentDashboardDTO response = studentDashboardService.getDashboard(userId, periodId);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error retrieving dashboard: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al obtener el dashboard: " + e.getMessage()));
         }
     }
 }

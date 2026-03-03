@@ -58,27 +58,27 @@ public class StudentRequestActionRepositoryImpl implements StudentRequestActionR
         Object result = getJdbcTemplate().queryForObject(sql, params, Object.class);
 
         if (result == null) {
-            return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Request cancelled successfully");
+            return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Solicitud cancelada exitosamente");
         }
 
         if (result instanceof Boolean) {
             Boolean boolResult = (Boolean) result;
             if (boolResult) {
-                return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Request cancelled successfully");
+                return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Solicitud cancelada exitosamente");
             } else {
-                return new StudentCancelRequestResponseDTO(requestId, "NOT_MODIFIED", "Request could not be cancelled");
+                return new StudentCancelRequestResponseDTO(requestId, "NOT_MODIFIED", "No se pudo cancelar la solicitud");
             }
         }
 
         if (result instanceof Number) {
             int intResult = ((Number) result).intValue();
             if (intResult == 1 || intResult > 0) {
-                return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Request cancelled successfully");
+                return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Solicitud cancelada exitosamente");
             } else {
-                return new StudentCancelRequestResponseDTO(requestId, "NOT_MODIFIED", "Request could not be cancelled");
+                return new StudentCancelRequestResponseDTO(requestId, "NOT_MODIFIED", "No se pudo cancelar la solicitud");
             }
         }
 
-        return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Request cancelled successfully");
+        return new StudentCancelRequestResponseDTO(requestId, "CANCELLED", "Solicitud cancelada exitosamente");
     }
 }

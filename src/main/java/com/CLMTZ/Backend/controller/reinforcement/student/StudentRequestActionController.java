@@ -27,7 +27,7 @@ public class StudentRequestActionController {
 
 
             if (requestId == null || requestId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid requestId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de solicitud inválido"));
             }
 
             StudentCancelRequestResponseDTO response = studentRequestActionService.cancelRequest(userId, requestId);
@@ -51,13 +51,13 @@ public class StudentRequestActionController {
                     return ResponseEntity.status(409).body(Map.of("message", extractBusinessMessage(message)));
                 }
             }
-            return ResponseEntity.status(500).body(Map.of("message", "Error cancelling request: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al cancelar la solicitud: " + e.getMessage()));
         }
     }
 
     private String extractBusinessMessage(String fullMessage) {
         if (fullMessage == null) {
-            return "Operation failed";
+            return "Error desconocido";
         }
         if (fullMessage.contains("ERROR:")) {
             int errorIndex = fullMessage.indexOf("ERROR:");

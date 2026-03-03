@@ -32,6 +32,6 @@ public class StudentPreferenceServiceImpl implements StudentPreferenceService {
     @Override
     public StudentPreferenceUpsertResponseDTO saveMyPreference(Integer userId, StudentPreferenceUpsertRequestDTO req) {
         studentPreferenceRepository.upsertPreference(userId, req.getChannelId(), req.getReminderAnticipation());
-        return new StudentPreferenceUpsertResponseDTO("Preferences saved");
+        return new StudentPreferenceUpsertResponseDTO("Preferencias guardadas exitosamente");
     }
 }

@@ -30,7 +30,7 @@ public class StudentPreferenceController {
             return ResponseEntity.ok(channels);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error retrieving channels: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al obtener canales de notificación: " + e.getMessage()));
         }
     }
 
@@ -50,7 +50,7 @@ public class StudentPreferenceController {
             return ResponseEntity.ok(preference);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error retrieving preference: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al obtener preferencias: " + e.getMessage()));
         }
     }
 
@@ -62,18 +62,18 @@ public class StudentPreferenceController {
 
 
             if (req.getChannelId() == null || req.getChannelId() <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid channelId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de canal de notificación inválido"));
             }
 
             if (req.getReminderAnticipation() == null || req.getReminderAnticipation() < 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid reminderAnticipation parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "El tiempo de anticipación del recordatorio es inválido"));
             }
 
             StudentPreferenceUpsertResponseDTO response = studentPreferenceService.saveMyPreference(userId, req);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error saving preference: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al guardar preferencias: " + e.getMessage()));
         }
     }
 }
