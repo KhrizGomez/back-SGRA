@@ -53,12 +53,12 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                 Integer teacherId = getTeacherId(userId);
                 int offset = (page - 1) * size;
 
+                String statusFilter = statusId != null ? "AND sr.idestadosolicitudrefuerzo = :statusId " : "";
+
                 String countSql = "SELECT COUNT(*) FROM reforzamiento.tbsolicitudesrefuerzos sr " +
+                                "JOIN reforzamiento.tbestadossolicitudesrefuerzos est ON sr.idestadosolicitudrefuerzo = est.idestadosolicitudrefuerzo " +
                                 "WHERE sr.iddocente = :teacherId " +
-                                "AND (:statusId IS NULL OR sr.idestadosolicitudrefuerzo = :statusId) " +
-                                "AND sr.idestadosolicitudrefuerzo IN (" +
-                                "  SELECT idestadosolicitudrefuerzo FROM reforzamiento.tbestadossolicitudesrefuerzos " +
-                                "  WHERE estado = TRUE)";
+                                statusFilter;
 
                 String dataSql = "SELECT sr.idsolicitudrefuerzo, " +
                                 "CONCAT(u.nombres, ' ', u.apellidos) AS estudiante, " +
@@ -79,14 +79,15 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                                 "JOIN reforzamiento.tbestadossolicitudesrefuerzos est ON sr.idestadosolicitudrefuerzo = est.idestadosolicitudrefuerzo "
                                 +
                                 "WHERE sr.iddocente = :teacherId " +
-                                "AND (:statusId IS NULL OR sr.idestadosolicitudrefuerzo = :statusId) " +
-                                "AND est.estado = TRUE " +
+                                statusFilter +
                                 "ORDER BY sr.fechahoracreacion DESC " +
                                 "LIMIT :size OFFSET :offset";
 
                 MapSqlParameterSource params = new MapSqlParameterSource();
                 params.addValue("teacherId", teacherId);
-                params.addValue("statusId", statusId);
+                if (statusId != null) {
+                        params.addValue("statusId", statusId);
+                }
                 params.addValue("size", size);
                 params.addValue("offset", offset);
 
