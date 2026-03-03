@@ -60,12 +60,14 @@ public class StudentDashboardRepositoryImpl implements StudentDashboardRepositor
             dto.setAccepted(getColumnValue(rs, "aceptadas", "accepted"));
             dto.setUpcoming(getColumnValue(rs, "proximas", "upcoming"));
             dto.setCompleted(getColumnValue(rs, "realizadas", "completed"));
+            dto.setCancelled(getColumnValue(rs, "canceladas", "cancelled"));
+            dto.setGroupInvitations(getColumnValue(rs, "invitaciones_grupales", "groupinvitations"));
 
             return dto;
         });
 
         if (results.isEmpty()) {
-            return new StudentDashboardDTO(0L, 0L, 0L, 0L);
+            return new StudentDashboardDTO(0L, 0L, 0L, 0L, 0L, 0L);
         }
 
         return results.get(0);

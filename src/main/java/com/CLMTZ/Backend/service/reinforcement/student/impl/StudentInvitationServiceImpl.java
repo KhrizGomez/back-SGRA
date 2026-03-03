@@ -1,6 +1,7 @@
 package com.CLMTZ.Backend.service.reinforcement.student.impl;
 
 import com.CLMTZ.Backend.config.UserContextHolder;
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationHistoryDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationResponseDTO;
 import com.CLMTZ.Backend.repository.reinforcement.student.StudentInvitationRepository;
@@ -22,6 +23,12 @@ public class StudentInvitationServiceImpl implements StudentInvitationService {
     public List<StudentInvitationItemDTO> getPendingInvitations() {
         Integer userId = UserContextHolder.getContext().getUserId();
         return studentInvitationRepository.listPendingInvitations(userId);
+    }
+
+    @Override
+    public List<StudentInvitationHistoryDTO> getInvitationHistory() {
+        Integer userId = UserContextHolder.getContext().getUserId();
+        return studentInvitationRepository.listInvitationHistory(userId);
     }
 
     @Override
