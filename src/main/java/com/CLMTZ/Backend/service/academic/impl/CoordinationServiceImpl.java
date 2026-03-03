@@ -12,16 +12,13 @@ import org.springframework.stereotype.Service;
 import com.CLMTZ.Backend.dto.academic.CoordinationDTO;
 import com.CLMTZ.Backend.dto.academic.StudentLoadDTO;
 import com.CLMTZ.Backend.dto.academic.TeachingDTO;
-import com.CLMTZ.Backend.dto.security.Response.EmailSettingsResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.model.academic.Coordination;
 import com.CLMTZ.Backend.model.general.User;
-import com.CLMTZ.Backend.model.security.EmailSettings;
 import com.CLMTZ.Backend.repository.academic.ICareerRepository;
 import com.CLMTZ.Backend.repository.academic.ICoordinationRepository;
 import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
-import com.CLMTZ.Backend.repository.security.jpa.IEmailSettingsRepository;
 import com.CLMTZ.Backend.service.academic.ICoordinationService;
 import com.CLMTZ.Backend.service.external.IEmailService;
 
@@ -41,7 +38,6 @@ public class CoordinationServiceImpl implements ICoordinationService {
     private final IUserRepository userRepository;
     private final ICareerRepository careerRepository;
     private final ICredentialRepository credentialRepository;
-    private final IEmailSettingsRepository emailSettingsRepository;
     private final IEmailService emailService;
 
     @PersistenceContext
@@ -226,136 +222,134 @@ public class CoordinationServiceImpl implements ICoordinationService {
     private String ejecutarCargaEstudianteSP(String identificador, String nombres, String apellidos,
             String correo, String telefono) {
 
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_estudiante");
-        query.registerStoredProcedureParameter("p_identificador", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_nombres", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_telefono", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        try {
+            StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_estudiante");
+            query.registerStoredProcedureParameter("p_identificador", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_nombres", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_telefono", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
+            query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
 
-        query.setParameter("p_identificador", identificador);
-        query.setParameter("p_nombres", nombres);
-        query.setParameter("p_apellidos", apellidos);
-        query.setParameter("p_correo", correo);
-        query.setParameter("p_telefono", telefono);
-        query.execute();
+            query.setParameter("p_identificador", identificador);
+            query.setParameter("p_nombres", nombres);
+            query.setParameter("p_apellidos", apellidos);
+            query.setParameter("p_correo", correo);
+            query.setParameter("p_telefono", telefono);
+            query.execute();
 
-        String mensaje = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
-        return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+            String mensaje = (String) query.getOutputParameterValue("p_mensaje");
+            Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
+            return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+
+        } catch (Exception e) {
+            // Limpiar EntityManager para que no quede en estado inconsistente para los siguientes registros
+            entityManager.clear();
+
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+            Throwable causa = e.getCause();
+            String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
+
+            // Detectar violación de constraint unique y dar mensaje amigable
+            if (causaMsg.toLowerCase().contains("duplicate key") || causaMsg.toLowerCase().contains("unique constraint")) {
+                String campoDuplicado = detectarCampoDuplicado(causaMsg, identificador, correo, telefono);
+                log.warn("Registro duplicado al cargar estudiante '{}' '{}': {}", nombres, apellidos, campoDuplicado);
+                return "FALLÓ SP: Ya existe un usuario registrado con el mismo " + campoDuplicado
+                        + ". Verifique los datos del estudiante.";
+            }
+
+            log.error("Error inesperado al ejecutar SP carga estudiante: {}", causaMsg, e);
+            return "FALLÓ SP: Error interno: " + causaMsg;
+        }
+    }
+
+    /**
+     * Detecta cuál campo causó la violación de unicidad basándose en el mensaje de error de PostgreSQL.
+     */
+    private String detectarCampoDuplicado(String errorMsg, String identificador, String correo, String telefono) {
+        String lower = errorMsg.toLowerCase();
+        if (lower.contains("identificador") || lower.contains("identification")) {
+            return "identificador/cédula (" + identificador + ")";
+        }
+        if (lower.contains("correo") || lower.contains("email")) {
+            return "correo electrónico (" + correo + ")";
+        }
+        if (lower.contains("telefono") || lower.contains("phone")) {
+            return "teléfono (" + telefono + ")";
+        }
+        // Si el nombre del constraint no es descriptivo, intentar por el nombre de la constraint de Hibernate
+        return "identificador, correo o teléfono (dato ya existente en el sistema)";
     }
 
     private String ejecutarCargaDocenteSP(String nombres, String apellidos,
             String asignatura, String paralelo) {
 
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_docente");
-        query.registerStoredProcedureParameter("p_nombres", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_asignatura", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_paralelo", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        try {
+            StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_docente");
+            query.registerStoredProcedureParameter("p_nombres", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_asignatura", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_paralelo", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
+            query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
 
-        query.setParameter("p_nombres", nombres);
-        query.setParameter("p_apellidos", apellidos);
-        query.setParameter("p_asignatura", asignatura);
-        query.setParameter("p_paralelo", paralelo);
-        query.execute();
+            query.setParameter("p_nombres", nombres);
+            query.setParameter("p_apellidos", apellidos);
+            query.setParameter("p_asignatura", asignatura);
+            query.setParameter("p_paralelo", paralelo);
+            query.execute();
 
-        String mensaje = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
-        return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+            String mensaje = (String) query.getOutputParameterValue("p_mensaje");
+            Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
+            return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+
+        } catch (Exception e) {
+            // Limpiar EntityManager para que no quede en estado inconsistente para los siguientes registros
+            entityManager.clear();
+
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+            Throwable causa = e.getCause();
+            String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
+
+            if (causaMsg.toLowerCase().contains("duplicate key") || causaMsg.toLowerCase().contains("unique constraint")) {
+                log.warn("Registro duplicado al cargar docente '{}' '{}': {}", nombres, apellidos, causaMsg);
+                return "FALLÓ SP: Ya existe un docente o usuario registrado con los mismos datos. "
+                        + "Verifique que no esté duplicado en el archivo.";
+            }
+
+            log.error("Error inesperado al ejecutar SP carga docente: {}", causaMsg, e);
+            return "FALLÓ SP: Error interno: " + causaMsg;
+        }
     }
 
     // --- EMAIL DE CREDENCIALES ---
 
     /**
-     * Obtiene la configuración de correo activa y la convierte a EmailSettingsResponseDTO.
-     */
-    private Optional<EmailSettingsResponseDTO> getActiveEmailConfig() {
-        log.info(">>> Buscando configuración de correo activa en BD...");
-        Optional<EmailSettings> esOpt = emailSettingsRepository.findFirstByStateTrue();
-
-        if (esOpt.isEmpty()) {
-            log.warn(">>> No se encontró ninguna configuración de correo con estado=true");
-            return Optional.empty();
-        }
-
-        EmailSettings es = esOpt.get();
-        log.info(">>> Configuración de correo encontrada (id={}):", es.getEmailSettingId());
-        log.info(">>>   SMTP Server: {}", es.getSmtpServer());
-        log.info(">>>   SMTP Puerto: {}", es.getSmtpPort());
-        log.info(">>>   SSL: {}", es.getSsl());
-        log.info(">>>   Correo emisor: {}", es.getEmailSender());
-        log.info(">>>   ⚠ [TEMPORAL] Contraseña app COMPLETA: '{}'", es.getApplicationPassword());
-        log.info(">>>   Nombre remitente: {}", es.getSenderName());
-        log.info(">>>   Estado: {}", es.getState());
-
-        return Optional.of(new EmailSettingsResponseDTO(
-                es.getSmtpServer(),
-                es.getSmtpPort(),
-                es.getSsl(),
-                es.getEmailSender(),
-                es.getApplicationPassword(),
-                es.getSenderName()
-        ));
-    }
-
-    /**
      * Envía un email con las credenciales temporales al usuario nuevo.
      * El mensaje del SP contiene el username generado.
      * La contraseña temporal es la cédula/identificador del usuario.
+     * Usa el servicio general de correo que obtiene la config activa automáticamente.
      */
     private void enviarEmailCredenciales(String correoDestino, String nombreCompleto,
                                           String mensajeSP, String identificador,
                                           List<String> resultados) {
-        log.info("====== INICIO: Enviar email de credenciales ======");
-        log.info("  Correo destino: {}", correoDestino);
-        log.info("  Nombre completo: {}", nombreCompleto);
-        log.info("  Mensaje SP (raw): {}", mensajeSP);
-        log.info("  Identificador (cédula): {}", identificador);
-
         try {
             if (correoDestino == null || correoDestino.isBlank()) {
-                log.warn("  ⚠ Correo destino vacío o null. No se envía email.");
                 resultados.add("  → Email: No se envió (correo destino vacío)");
                 return;
             }
 
-            log.info("  Paso 1: Obteniendo configuración de correo activa...");
-            Optional<EmailSettingsResponseDTO> configOpt = getActiveEmailConfig();
-            if (configOpt.isEmpty()) {
-                log.warn("  ⚠ No hay configuración de correo activa. No se envió email a {}", correoDestino);
-                resultados.add("  → Email: No se envió (sin configuración de correo activa)");
-                return;
-            }
-            log.info("  Paso 1: ✅ Config de correo obtenida");
-
-            // Extraer username del mensaje del SP
-            log.info("  Paso 2: Extrayendo username del mensaje del SP...");
             String username = extraerUsernameDelMensaje(mensajeSP);
-            log.info("  Paso 2: Username extraído = '{}'", username);
-            log.info("  ⚠ [TEMPORAL] Credenciales del usuario nuevo:");
-            log.info("  ⚠ [TEMPORAL]   Username: {}", username);
-            log.info("  ⚠ [TEMPORAL]   Contraseña temporal (cédula): {}", identificador);
-
             String subject = "SGRA - Credenciales de Acceso al Sistema";
             String body = construirEmailCredenciales(nombreCompleto, username, identificador);
-            log.info("  Paso 3: Email HTML construido (longitud body: {} chars)", body.length());
 
-            log.info("  Paso 4: Llamando a emailService.sendEmail()...");
-            emailService.sendEmail(configOpt.get(), correoDestino, subject, body);
-            log.info("  ✅ Email de credenciales enviado exitosamente a: {}", correoDestino);
+            emailService.sendEmail(correoDestino, subject, body);
             resultados.add("  → Email enviado a: " + correoDestino);
-            log.info("====== FIN: Enviar email de credenciales (OK) ======");
 
         } catch (Exception e) {
-            log.error("  ❌ Error al enviar email de credenciales a {}: {}", correoDestino, e.getMessage());
-            log.error("  Causa raíz: {}", e.getCause() != null ? e.getCause().getMessage() : "N/A");
+            log.error("Error al enviar email de credenciales a {}: {}", correoDestino, e.getMessage());
             resultados.add("  → Error email: " + e.getMessage());
-            log.info("====== FIN: Enviar email de credenciales (ERROR) ======");
         }
     }
 
@@ -385,44 +379,72 @@ public class CoordinationServiceImpl implements ICoordinationService {
      */
     private String construirEmailCredenciales(String nombre, String username, String contrasena) {
         return """
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;">
-                <div style="background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
-                    <div style="background: #2e7d32; padding: 24px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 20px;">Sistema de Gestión de Refuerzos Académicos</h1>
-                        <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">Universidad Técnica Estatal de Quevedo</p>
-                    </div>
-                    <div style="padding: 32px 24px;">
-                        <p style="color: #333; font-size: 16px; margin: 0 0 16px;">Hola <strong>%s</strong>,</p>
-                        <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-                            Se han creado tus credenciales de acceso al SGRA. A continuación encontrarás tu usuario y contraseña temporal:
-                        </p>
-                        <div style="background: #f0f7f0; border: 1px solid #c8e6c9; border-radius: 8px; padding: 20px; margin: 0 0 24px;">
-                            <table style="width: 100%%; border-collapse: collapse;">
-                                <tr>
-                                    <td style="padding: 8px 0; color: #666; font-size: 13px; font-weight: 600;">Usuario:</td>
-                                    <td style="padding: 8px 0; color: #2e7d32; font-size: 15px; font-weight: 700; font-family: monospace;">%s</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0; color: #666; font-size: 13px; font-weight: 600;">Contraseña temporal:</td>
-                                    <td style="padding: 8px 0; color: #2e7d32; font-size: 15px; font-weight: 700; font-family: monospace;">%s</td>
-                                </tr>
-                            </table>
-                        </div>
-                        <div style="background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; padding: 16px; margin: 0 0 24px;">
-                            <p style="color: #e65100; font-size: 13px; margin: 0; line-height: 1.5;">
-                                <strong>⚠ Importante:</strong> Al iniciar sesión por primera vez, el sistema te solicitará cambiar tu contraseña obligatoriamente.
-                                Tu contraseña temporal es tu número de cédula/identificación.
-                            </p>
-                        </div>
-                        <p style="color: #999; font-size: 12px; margin: 0; line-height: 1.5;">
-                            Este es un correo automático generado por el SGRA. No responda a este mensaje.
-                        </p>
-                    </div>
-                    <div style="background: #f5f5f5; padding: 16px; text-align: center; border-top: 1px solid #e0e0e0;">
-                        <p style="color: #999; font-size: 11px; margin: 0;">© 2026 UTEQ - Todos los derechos reservados</p>
-                    </div>
-                </div>
-            </div>
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="margin:0; padding:0; background:#F4F7F5; font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+                <table width="100%%" cellpadding="0" cellspacing="0" style="background:#F4F7F5; padding:32px 16px;">
+                    <tr><td align="center">
+                        <table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+                            <!-- HEADER -->
+                            <tr><td style="background:linear-gradient(135deg, #0D4F32 0%%, #0F5B3B 50%%, #116A43 100%%); padding:32px 24px; text-align:center;">
+                                <h1 style="color:#ffffff; margin:0 0 4px; font-size:22px; font-weight:700; letter-spacing:-0.3px;">SGRA</h1>
+                                <p style="color:rgba(255,255,255,0.75); margin:0; font-size:12px; font-weight:400; letter-spacing:0.5px; text-transform:uppercase;">Sistema de Gestión de Refuerzos Académicos</p>
+                                <p style="color:rgba(255,255,255,0.6); margin:6px 0 0; font-size:11px;">Universidad Técnica Estatal de Quevedo</p>
+                            </td></tr>
+
+                            <!-- BODY -->
+                            <tr><td style="padding:32px 28px 24px;">
+                                <p style="color:#1a1a2e; font-size:16px; margin:0 0 8px; font-weight:600;">¡Bienvenido/a, %s!</p>
+                                <p style="color:#555770; font-size:14px; line-height:1.6; margin:0 0 24px;">
+                                    Se ha creado tu cuenta en el SGRA. A continuación encontrarás tus credenciales de acceso:
+                                </p>
+
+                                <!-- CREDENCIALES -->
+                                <table width="100%%" cellpadding="0" cellspacing="0" style="background:#f8faf9; border:1px solid #e0e8e4; border-radius:12px; overflow:hidden; margin:0 0 24px;">
+                                    <tr><td style="padding:16px 20px; border-bottom:1px solid #e0e8e4;">
+                                        <table width="100%%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="color:#6c757d; font-size:13px; font-weight:500; width:140px;">👤 Usuario</td>
+                                                <td style="color:#0D4F32; font-size:15px; font-weight:700; font-family:'Courier New',monospace; letter-spacing:0.5px;">%s</td>
+                                            </tr>
+                                        </table>
+                                    </td></tr>
+                                    <tr><td style="padding:16px 20px;">
+                                        <table width="100%%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="color:#6c757d; font-size:13px; font-weight:500; width:140px;">🔑 Contraseña</td>
+                                                <td style="color:#0D4F32; font-size:15px; font-weight:700; font-family:'Courier New',monospace; letter-spacing:0.5px;">%s</td>
+                                            </tr>
+                                        </table>
+                                    </td></tr>
+                                </table>
+
+                                <!-- AVISO -->
+                                <table width="100%%" cellpadding="0" cellspacing="0" style="background:#FFF8E1; border-left:4px solid #F9A825; border-radius:0 8px 8px 0; margin:0 0 24px;">
+                                    <tr><td style="padding:14px 16px;">
+                                        <p style="color:#7B6418; font-size:13px; margin:0; line-height:1.5;">
+                                            <strong>⚠ Importante:</strong> Al iniciar sesión por primera vez, se te solicitará cambiar tu contraseña. Tu contraseña temporal es tu número de cédula.
+                                        </p>
+                                    </td></tr>
+                                </table>
+
+                                <p style="color:#8b8da3; font-size:12px; margin:0; line-height:1.5; text-align:center;">
+                                    Este es un correo automático del SGRA. No responda a este mensaje.
+                                </p>
+                            </td></tr>
+
+                            <!-- FOOTER -->
+                            <tr><td style="background:#f8faf9; padding:16px 24px; text-align:center; border-top:1px solid #e8ece9;">
+                                <p style="color:#8b8da3; font-size:11px; margin:0;">© 2026 UTEQ — Todos los derechos reservados</p>
+                            </td></tr>
+
+                        </table>
+                    </td></tr>
+                </table>
+            </body>
+            </html>
             """.formatted(nombre, username, contrasena);
     }
 
