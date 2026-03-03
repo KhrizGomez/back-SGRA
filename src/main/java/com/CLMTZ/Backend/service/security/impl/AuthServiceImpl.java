@@ -1,13 +1,16 @@
 package com.CLMTZ.Backend.service.security.impl;
 
 import com.CLMTZ.Backend.config.UserConnectionPool;
+import com.CLMTZ.Backend.dto.security.Request.ChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.LoginRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.ServerCredentialRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.LoginResponseDTO;
+import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
 import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.model.security.Access;
 import com.CLMTZ.Backend.model.security.UsersRoles;
+import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
 import com.CLMTZ.Backend.repository.security.custom.IServerCredentialRepository;
 import com.CLMTZ.Backend.repository.security.jpa.IAccessRepository;
 import com.CLMTZ.Backend.repository.security.jpa.IUsersRolesRepository;
@@ -34,6 +37,7 @@ public class AuthServiceImpl implements IAuthService {
     private final IAccessRepository accessRepository;
     private final IUsersRolesRepository usersRolesRepository;
     private final IServerCredentialRepository serverCredentialRepository;
+    private final ICredentialRepository credentialRepository;
     private final UserConnectionPool userConnectionPool;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -85,26 +89,34 @@ public class AuthServiceImpl implements IAuthService {
             throw new RuntimeException("El usuario no tiene roles asignados");
         }
 
-        // 6. Obtener credenciales del servidor (LOGIN SERVER)
+        // 6. Si el estado es 'C' (Cambiar contraseña), NO buscar credenciales de servidor
+        //    porque aún no existen. Se crearán al momento del primer cambio de contraseña.
         boolean serverSynced = false;
         String dbUser = null;
         String dbPassword = null;
 
-        if (masterKey != null && !masterKey.isEmpty()) {
-            Optional<ServerCredentialRequestDTO> serverCredOpt = serverCredentialRepository.getServerCredential(user.getUserId(), masterKey);
-            if (serverCredOpt.isPresent()) {
-                ServerCredentialRequestDTO serverCred = serverCredOpt.get();
-                serverSynced = true;
-                dbUser = serverCred.getDbUser();
-                dbPassword = serverCred.getDbPassword();
-                log.info("Credenciales de servidor sincronizadas para usuario: {}", request.getUsername());
-            } else {
-                log.warn("Credenciales de servidor no sincronizadas para usuario: {}", request.getUsername());
-                throw new RuntimeException("Credenciales de servidor no sincronizadas. Contacte al administrador.");
-            }
+        if (accountState.equals('C')) {
+            log.info("Usuario con estado 'C' (cambio de contraseña requerido): {}. " +
+                     "Se omite la obtención de credenciales de servidor.", request.getUsername());
+            serverSynced = false;
         } else {
-            log.warn("Master key no configurada. Las credenciales de servidor no pueden ser verificadas.");
-            throw new RuntimeException("Error de configuración del sistema");
+            // Estado 'A' → obtener credenciales del servidor (LOGIN SERVER)
+            if (masterKey != null && !masterKey.isEmpty()) {
+                Optional<ServerCredentialRequestDTO> serverCredOpt = serverCredentialRepository.getServerCredential(user.getUserId(), masterKey);
+                if (serverCredOpt.isPresent()) {
+                    ServerCredentialRequestDTO serverCred = serverCredOpt.get();
+                    serverSynced = true;
+                    dbUser = serverCred.getDbUser();
+                    dbPassword = serverCred.getDbPassword();
+                    log.info("Credenciales de servidor sincronizadas para usuario: {}", request.getUsername());
+                } else {
+                    log.warn("Credenciales de servidor no sincronizadas para usuario: {}", request.getUsername());
+                    throw new RuntimeException("Credenciales de servidor no sincronizadas. Contacte al administrador.");
+                }
+            } else {
+                log.warn("Master key no configurada. Las credenciales de servidor no pueden ser verificadas.");
+                throw new RuntimeException("Error de configuración del sistema");
+            }
         }
 
         // 7. Crear UserContext y guardar en sesión
@@ -121,7 +133,7 @@ public class AuthServiceImpl implements IAuthService {
         ctx.setDbPassword(dbPassword); // Solo en memoria de sesión
 
         session.setAttribute(SESSION_CTX_KEY, ctx);
-        log.info("Login exitoso para usuario: {}. Roles: {}", request.getUsername(), roles);
+        log.info("Login exitoso para usuario: {}. Roles: {}. Estado: {}", request.getUsername(), roles, accountState);
 
         // 8. Retornar respuesta (sin dbPassword)
         return new LoginResponseDTO(
@@ -174,6 +186,66 @@ public class AuthServiceImpl implements IAuthService {
             return (UserContext) ctx;
         }
         return null;
+    }
+
+    @Override
+    public SpResponseDTO changePassword(ChangePasswordRequestDTO request, HttpSession session) {
+        // 1. Verificar sesión activa
+        UserContext ctx = getUserContext(session);
+        if (ctx == null) {
+            return new SpResponseDTO("No hay sesión activa.", false);
+        }
+
+        // 2. Verificar que el usuario esté en estado 'C' (Cambiar contraseña)
+        if (ctx.getAccountState() == null || !ctx.getAccountState().equals('C')) {
+            return new SpResponseDTO("Esta acción solo está disponible para usuarios que requieren cambio de contraseña.", false);
+        }
+
+        // 3. Validar que las contraseñas no estén vacías
+        if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
+            return new SpResponseDTO("La nueva contraseña no puede estar vacía.", false);
+        }
+
+        if (request.getConfirmPassword() == null || request.getConfirmPassword().trim().isEmpty()) {
+            return new SpResponseDTO("La confirmación de contraseña no puede estar vacía.", false);
+        }
+
+        // 4. Validar que coincidan
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            return new SpResponseDTO("Las contraseñas no coinciden.", false);
+        }
+
+        // 5. Validar complejidad mínima (al menos 8 caracteres, 1 mayúscula, 1 número)
+        String password = request.getNewPassword();
+        if (password.length() < 8) {
+            return new SpResponseDTO("La contraseña debe tener al menos 8 caracteres.", false);
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            return new SpResponseDTO("La contraseña debe contener al menos una letra mayúscula.", false);
+        }
+        if (!password.matches(".*[0-9].*")) {
+            return new SpResponseDTO("La contraseña debe contener al menos un número.", false);
+        }
+
+        // 6. Llamar al SP que hace todo el pipeline:
+        //    - Hashea la nueva contraseña y actualiza tbaccesos (estado='A')
+        //    - Crea el usuario PostgreSQL SERVER
+        //    - Vincula en tbusuariosgestionusuarios
+        log.info("Procesando primer cambio de contraseña para usuario: {} (userId={})",
+                ctx.getUsername(), ctx.getUserId());
+
+        SpResponseDTO result = credentialRepository.firstPasswordChange(ctx.getUserId(), password);
+
+        if (Boolean.TRUE.equals(result.getSuccess())) {
+            log.info("Cambio de contraseña exitoso para usuario: {}. Invalidando sesión.", ctx.getUsername());
+            // Invalidar sesión para forzar nuevo login con credenciales actualizadas
+            session.invalidate();
+        } else {
+            log.warn("Error en cambio de contraseña para usuario: {}. Mensaje: {}",
+                    ctx.getUsername(), result.getMessage());
+        }
+
+        return result;
     }
 }
 
