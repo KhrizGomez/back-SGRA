@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.service.reinforcement.student;
 
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationHistoryDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationResponseDTO;
 
@@ -16,11 +17,12 @@ public interface StudentInvitationService {
     List<StudentInvitationItemDTO> getPendingInvitations();
 
     /**
+     * Lista el historial de invitaciones grupales ya respondidas.
+     */
+    List<StudentInvitationHistoryDTO> getInvitationHistory();
+
+    /**
      * Acepta o rechaza una invitación a tutoría grupal.
-     *
-     * @param participantId ID del registro en tbparticipantes
-     * @param accept        true = acepta, false = rechaza
-     * @return DTO con resultado de la operación
      */
     StudentInvitationResponseDTO respondInvitation(Integer participantId, Boolean accept);
 }

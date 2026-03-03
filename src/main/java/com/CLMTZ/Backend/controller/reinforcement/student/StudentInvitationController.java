@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.controller.reinforcement.student;
 
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationHistoryDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationResponseDTO;
 import com.CLMTZ.Backend.service.reinforcement.student.StudentInvitationService;
@@ -34,6 +35,20 @@ public class StudentInvitationController {
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(Map.of("message", "Error al obtener invitaciones: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Lista el historial de invitaciones grupales ya respondidas (aceptadas).
+     */
+    @GetMapping("/history")
+    public ResponseEntity<?> getInvitationHistory() {
+        try {
+            List<StudentInvitationHistoryDTO> history = studentInvitationService.getInvitationHistory();
+            return ResponseEntity.ok(history);
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Error al obtener historial de invitaciones: " + e.getMessage()));
         }
     }
 

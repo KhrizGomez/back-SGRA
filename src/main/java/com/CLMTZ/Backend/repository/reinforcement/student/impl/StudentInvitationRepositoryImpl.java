@@ -1,6 +1,7 @@
 package com.CLMTZ.Backend.repository.reinforcement.student.impl;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationHistoryDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentInvitationItemDTO;
 import com.CLMTZ.Backend.repository.reinforcement.student.StudentInvitationRepository;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -40,6 +41,31 @@ public class StudentInvitationRepositoryImpl implements StudentInvitationReposit
                 rs.getString("tipo_sesion"),
                 rs.getString("motivo"),
                 rs.getTimestamp("fecha_solicitud"),
+                rs.getLong("total_invitados"),
+                rs.getLong("total_aceptados")
+        ));
+    }
+
+    @Override
+    public List<StudentInvitationHistoryDTO> listInvitationHistory(Integer userId) {
+        String sql = "SELECT * FROM reforzamiento.fn_sl_historial_invitaciones_estudiante(:userId)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("userId", userId);
+
+        return getJdbcTemplate().query(sql, params, (rs, rowNum) -> new StudentInvitationHistoryDTO(
+                rs.getInt("idparticipante"),
+                rs.getInt("idsolicitudrefuerzo"),
+                rs.getString("asignatura"),
+                rs.getShort("semestre"),
+                rs.getString("solicitante"),
+                rs.getString("correo_solicitante"),
+                rs.getString("docente"),
+                rs.getString("tipo_sesion"),
+                rs.getString("motivo"),
+                rs.getTimestamp("fecha_solicitud"),
+                rs.getString("estado_invitacion"),
+                rs.getString("estado_solicitud"),
                 rs.getLong("total_invitados"),
                 rs.getLong("total_aceptados")
         ));

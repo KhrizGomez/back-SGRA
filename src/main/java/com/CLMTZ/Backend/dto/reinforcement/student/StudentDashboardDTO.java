@@ -12,4 +12,6 @@ public class StudentDashboardDTO {
     private Long accepted;
     private Long upcoming;
     private Long completed;
+    private Long cancelled;
+    private Long groupInvitations;
 }

@@ -61,7 +61,28 @@ public class StudentRequestController {
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error al crear la solicitud: " + e.getMessage()));
+            String msg = extractBusinessMessage(e.getMessage());
+            // Detectar error de solicitud duplicada desde la BD
+            if (msg.toLowerCase().contains("ya existe una solicitud")) {
+                return ResponseEntity.status(409).body(Map.of("message", msg));
+            }
+            return ResponseEntity.status(500).body(Map.of("message", "Error al crear la solicitud: " + msg));
         }
+    }
+
+    private String extractBusinessMessage(String fullMessage) {
+        if (fullMessage == null) {
+            return "Error desconocido";
+        }
+        if (fullMessage.contains("ERROR:")) {
+            int errorIndex = fullMessage.indexOf("ERROR:");
+            String afterError = fullMessage.substring(errorIndex + 6).trim();
+            int newlineIndex = afterError.indexOf("\n");
+            if (newlineIndex > 0) {
+                return afterError.substring(0, newlineIndex).trim();
+            }
+            return afterError;
+        }
+        return fullMessage;
     }
 }
