@@ -1,8 +1,12 @@
 package com.CLMTZ.Backend.repository.security.custom.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Types;
 import java.util.List;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,18 +16,11 @@ import com.CLMTZ.Backend.dto.security.Request.EmailSettingsRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.repository.security.custom.IEmailSettingsCustomRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.ParameterMode;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
 public class EmailSettingsCustomRepository implements IEmailSettingsCustomRepository{
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     private final DynamicDataSourceService dynamicDataSourceService;
 
@@ -40,24 +37,33 @@ public class EmailSettingsCustomRepository implements IEmailSettingsCustomReposi
     @Override
     @Transactional
     public SpResponseDTO createEmail(Integer userid, String email, String passwordApp){
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_in_configuracioncorreo");
 
-        query.registerStoredProcedureParameter("p_idusuario", Integer.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_contrasena", String.class, ParameterMode.IN);
+        String sql = "CALL seguridad.sp_in_configuracioncorreo(?, ?, ?, ?, ?)";
 
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.setParameter("p_idusuario", userid);
-        query.setParameter("p_correo", email);
-        query.setParameter("p_contrasena", passwordApp);
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        query.execute();
+                cs.setInt(1, userid);
+                cs.setString(2, email);
+                cs.setString(3, passwordApp);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.registerOutParameter(4, Types.VARCHAR);
+                cs.registerOutParameter(5, Types.BOOLEAN);
 
-        return new SpResponseDTO(message, success);
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(4);
+                Boolean success = cs.getBoolean(5);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 }

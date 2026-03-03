@@ -1,10 +1,13 @@
 package com.CLMTZ.Backend.repository.security.custom.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,18 +18,11 @@ import com.CLMTZ.Backend.dto.security.Response.UserListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.UserRoleManagementResponseDTO;
 import com.CLMTZ.Backend.repository.security.custom.IUserManagementCustomRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.ParameterMode;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
 public class UserManagementCustomRepositoryImpl implements IUserManagementCustomRepository{
-    
-    @PersistenceContext
-    private EntityManager entityManager;
 
     private final DynamicDataSourceService dynamicDataSourceService;
 
@@ -44,45 +40,65 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
     }
 
     @Override
-    @Transactional
     public SpResponseDTO createUserManagement(String user, String password, String roles) {
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_in_creargusuario");
 
-        query.registerStoredProcedureParameter("p_gusuario", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_gcontrasena", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_roles", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        String sql = "CALL seguridad.sp_in_creargusuario(?, ?, ?, ?, ?)";
 
-        query.setParameter("p_gusuario", user);
-        query.setParameter("p_gcontrasena", password);
-        query.setParameter("p_roles", roles);
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.execute();
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
+                
+                cs.setString(1, user);
+                cs.setString(2, password);
+                cs.setString(3, roles);
+                
+                cs.registerOutParameter(4, Types.VARCHAR);
+                cs.registerOutParameter(5, Types.BOOLEAN);
+                
+                return cs;
+            },
+            (CallableStatement cs) -> {
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
-
-        return new SpResponseDTO(message, success);
+                cs.execute();
+                
+                String message = cs.getString(4);
+                Boolean success = cs.getBoolean(5);
+                
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 
     @Override
     public SpResponseDTO updateUserManagement(String jsonUserId){
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_up_gusuario");
 
-        query.registerStoredProcedureParameter("p_json_usuario", String.class, ParameterMode.IN);
+        String sql = "CALL seguridad.sp_up_gusuario(?, ?, ?)";
 
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.setParameter("p_json_usuario", jsonUserId);
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        query.execute();
+                cs.setString(1, jsonUserId);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.registerOutParameter(2, Types.VARCHAR);
+                cs.registerOutParameter(3, Types.BOOLEAN);
 
-        return new SpResponseDTO(message, success);
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(2);
+                Boolean success = cs.getBoolean(3);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 
     @Override

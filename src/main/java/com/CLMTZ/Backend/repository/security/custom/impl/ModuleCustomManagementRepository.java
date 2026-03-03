@@ -1,8 +1,12 @@
 package com.CLMTZ.Backend.repository.security.custom.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Types;
 import java.util.List;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,17 +20,11 @@ import com.CLMTZ.Backend.dto.security.Response.ModuleListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.repository.security.custom.IModuleCustomManagementRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.ParameterMode;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
 public class ModuleCustomManagementRepository implements IModuleCustomManagementRepository{
-    @PersistenceContext
-    private EntityManager entityManager;
 
     private final DynamicDataSourceService dynamicDataSourceService;
 
@@ -64,65 +62,97 @@ public class ModuleCustomManagementRepository implements IModuleCustomManagement
     @Override
     @Transactional
     public SpResponseDTO updateRolePermissions(String jsonPermissions){
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_in_up_roles_permisos");
 
-        query.registerStoredProcedureParameter("p_permisos", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        String sql = "CALL seguridad.sp_in_up_roles_permisos(?, ?, ?)";
 
-        query.setParameter("p_permisos", jsonPermissions);
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.execute();
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.setString(1, jsonPermissions);
 
-        return new SpResponseDTO(message, success);
+                cs.registerOutParameter(2, Types.VARCHAR);
+                cs.registerOutParameter(3, Types.BOOLEAN);
+
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(2);
+                Boolean success = cs.getBoolean(3);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 
     @Override
     @Transactional
     public SpResponseDTO masterTablesManagement(MasterManagementRequestDTO masterTables){
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_in_tablas_maestras");
 
-        query.registerStoredProcedureParameter("p_esquematabla", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_valor", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        String sql = "CALL seguridad.sp_in_tablas_maestras(?, ?, ?, ?)";
 
-        query.setParameter("p_esquematabla", masterTables.getEsquematabla());
-        query.setParameter("p_valor", masterTables.getNombre());
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.execute();
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.setString(1, masterTables.getEsquematabla());
+                cs.setString(2, masterTables.getNombre());
 
-        return new SpResponseDTO(message, success);
+                cs.registerOutParameter(3, Types.VARCHAR);
+                cs.registerOutParameter(4, Types.BOOLEAN);
+
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(3);
+                Boolean success = cs.getBoolean(4);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 
     @Override
     @Transactional
     public SpResponseDTO masterDataUpdateManagement(MasterDataManagementRequestDTO dataUpdate){
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("seguridad.sp_up_tablas_maestras");
 
-        query.registerStoredProcedureParameter("p_esquematabla", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_id", Integer.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_valor", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_estado", Boolean.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+        String sql = "CALL seguridad.sp_up_tablas_maestras(?, ?, ?, ?, ?, ?)";
 
-        query.setParameter("p_esquematabla", dataUpdate.getEsquematabla());
-        query.setParameter("p_id", dataUpdate.getId());
-        query.setParameter("p_valor", dataUpdate.getNombre());
-        query.setParameter("p_estado", dataUpdate.getEstado());
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-        query.execute();
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
 
-        String message = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean success = (Boolean) query.getOutputParameterValue("p_exito");
+                cs.setString(1, dataUpdate.getEsquematabla());
+                cs.setInt(2, dataUpdate.getId());
+                cs.setString(3, dataUpdate.getNombre());
+                cs.setBoolean(4, dataUpdate.getEstado());
 
-        return new SpResponseDTO(message, success);
+                cs.registerOutParameter(5, Types.VARCHAR);
+                cs.registerOutParameter(6, Types.BOOLEAN);
+
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(5);
+                Boolean success = cs.getBoolean(6);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
     }
 }

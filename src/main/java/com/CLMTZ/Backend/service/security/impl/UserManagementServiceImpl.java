@@ -50,7 +50,7 @@ public class UserManagementServiceImpl implements IUserManagementService {
             }
             return userManagementCustRepo.createUserManagement(userRequest.getUser(), userRequest.getPassword(), rolesSep);
         } catch (Exception e) {
-            return new SpResponseDTO("Error al crear al usuarios: " + e.getMessage(),false);
+            return new SpResponseDTO("Error al crear al usuarios servicio: " + e.getCause().getMessage(),false);
         }  
     }
 

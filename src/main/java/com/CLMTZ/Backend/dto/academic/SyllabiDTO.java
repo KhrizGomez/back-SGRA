@@ -14,7 +14,6 @@ public class SyllabiDTO {
     private Boolean state;
     private Integer subjectId;
     public void setCarreraTexto(String cellValue) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'setCarreraTexto'");
     }
 

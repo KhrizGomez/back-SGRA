@@ -62,13 +62,11 @@ public class PeriodServiceImpl implements IPeriodService {
 
     @Override
     public List<String> Period(List<PeriodDTO> dtos) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'Period'");
     }
 
     @Override
     public List<String> uploadPeriods(List<PeriodLoadDTO> periodDTOs) {
-        // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'uploadPeriods'");
     }
 
