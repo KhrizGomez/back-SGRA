@@ -1,7 +1,9 @@
 package com.CLMTZ.Backend.controller.security;
 
+import com.CLMTZ.Backend.dto.security.Request.ChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.LoginRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.LoginResponseDTO;
+import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.service.security.IAuthService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -43,5 +45,22 @@ public class AuthController {
     public ResponseEntity<?> logout(HttpSession session) {
         authService.logout(session);
         return ResponseEntity.ok(Map.of("message", "Sesion cerrada correctamente"));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequestDTO request, HttpSession session) {
+        SpResponseDTO result = authService.changePassword(request, session);
+        if (Boolean.TRUE.equals(result.getSuccess())) {
+            return ResponseEntity.ok(Map.of(
+                    "message", result.getMessage(),
+                    "success", true
+            ));
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "error", result.getMessage(),
+                            "success", false
+                    ));
+        }
     }
 }

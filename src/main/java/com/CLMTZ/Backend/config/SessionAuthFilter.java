@@ -27,6 +27,13 @@ public class SessionAuthFilter implements Filter {
             "/api/auth/me"
     );
 
+    // Rutas permitidas para usuarios con estado 'C' (cambio de contraseña obligatorio)
+    private static final List<String> CHANGE_PASSWORD_PATHS = Arrays.asList(
+            "/api/auth/change-password",
+            "/api/auth/logout",
+            "/api/auth/me"
+    );
+
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -64,6 +71,15 @@ public class SessionAuthFilter implements Filter {
             return;
         }
 
+        // Si el usuario tiene estado 'C', solo permitir rutas de cambio de contraseña
+        if (ctx.getAccountState() != null && ctx.getAccountState().equals('C')) {
+            if (!isChangePasswordPath(path)) {
+                log.debug("Usuario con estado 'C' intentó acceder a ruta restringida: {}", path);
+                sendForbidden(httpResponse, "Debe cambiar su contraseña antes de acceder al sistema.");
+                return;
+            }
+        }
+
         // Poblar UserContextHolder para acceso desde cualquier parte del código
         try {
             UserContextHolder.setContext(ctx);
@@ -81,8 +97,19 @@ public class SessionAuthFilter implements Filter {
         return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
     }
 
+    private boolean isChangePasswordPath(String path) {
+        return CHANGE_PASSWORD_PATHS.stream().anyMatch(path::startsWith);
+    }
+
     private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"error\": \"" + message + "\"}");
+    }
+
+    private void sendForbidden(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write("{\"error\": \"" + message + "\"}");
