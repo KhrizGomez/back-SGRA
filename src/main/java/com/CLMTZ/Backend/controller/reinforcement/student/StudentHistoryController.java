@@ -31,16 +31,16 @@ public class StudentHistoryController {
             Integer userId = ctx.getUserId();
 
             if (page < 1) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Page must be greater than or equal to 1"));
+                return ResponseEntity.badRequest().body(Map.of("message", "La página debe ser mayor o igual a 1"));
             }
             if (size < 1 || size > 100) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Size must be between 1 and 100"));
+                return ResponseEntity.badRequest().body(Map.of("message", "El tamaño debe estar entre 1 y 100"));
             }
             if (periodId != null && periodId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid periodId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de periodo inválido"));
             }
             if (statusId != null && statusId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid statusId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de estado inválido"));
             }
 
             StudentHistoryRequestsPageDTO response = studentHistoryService.getRequestHistory(userId, periodId, page,
@@ -49,7 +49,7 @@ public class StudentHistoryController {
 
         } catch (Exception e) {
             return ResponseEntity.status(500)
-                    .body(Map.of("message", "Error retrieving request history: " + e.getMessage()));
+                    .body(Map.of("message", "Error al obtener el historial de solicitudes: " + e.getMessage()));
         }
     }
 
@@ -63,10 +63,10 @@ public class StudentHistoryController {
             Integer userId = ctx.getUserId();
 
             if (page < 1) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Page must be greater than or equal to 1"));
+                return ResponseEntity.badRequest().body(Map.of("message", "La página debe ser mayor o igual a 1"));
             }
             if (size < 1 || size > 100) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Size must be between 1 and 100"));
+                return ResponseEntity.badRequest().body(Map.of("message", "El tamaño debe estar entre 1 y 100"));
             }
 
             StudentHistorySessionsPageDTO response = studentHistoryService.getPreviousSessions(userId, page, size,
@@ -75,7 +75,7 @@ public class StudentHistoryController {
 
         } catch (Exception e) {
             return ResponseEntity.status(500)
-                    .body(Map.of("message", "Error retrieving previous sessions: " + e.getMessage()));
+                    .body(Map.of("message", "Error al obtener las sesiones anteriores: " + e.getMessage()));
         }
     }
 }

@@ -36,22 +36,22 @@ public class StudentMyRequestsController {
             Integer userId = ctx.getUserId();
 
             if (page < 1) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Page must be >= 1"));
+                return ResponseEntity.badRequest().body(Map.of("message", "La página debe ser mayor o igual a 1"));
             }
             if (size < 1 || size > 100) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Size must be between 1 and 100"));
+                return ResponseEntity.badRequest().body(Map.of("message", "El tamaño debe estar entre 1 y 100"));
             }
             if (periodId != null && periodId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid periodId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de periodo inválido"));
             }
             if (statusId != null && statusId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid statusId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de estado inválido"));
             }
             if (sessionTypeId != null && sessionTypeId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid sessionTypeId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de tipo de sesión inválido"));
             }
             if (subjectId != null && subjectId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid subjectId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de asignatura inválido"));
             }
 
             StudentMyRequestsPageDTO response = studentMyRequestsService.getMyRequests(
@@ -59,7 +59,7 @@ public class StudentMyRequestsController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error retrieving requests: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al obtener solicitudes: " + e.getMessage()));
         }
     }
 
@@ -70,14 +70,14 @@ public class StudentMyRequestsController {
             Integer userId = ctx.getUserId();
 
             if (periodId != null && periodId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid periodId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de periodo inválido"));
             }
 
             StudentMyRequestsChipsDTO response = studentMyRequestsService.getMyRequestsChips(userId, periodId);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error retrieving chips: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al obtener resumen: " + e.getMessage()));
         }
     }
 
@@ -89,7 +89,7 @@ public class StudentMyRequestsController {
             Integer userId = ctx.getUserId();
 
             if (periodId != null && periodId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid periodId parameter"));
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de periodo inválido"));
             }
 
             List<StudentMyRequestsStatusSummaryDTO> response = studentMyRequestsService.getMyRequestsSummary(userId,
@@ -97,7 +97,7 @@ public class StudentMyRequestsController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Error retrieving summary: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("message", "Error al obtener resumen de estados: " + e.getMessage()));
         }
     }
 }
