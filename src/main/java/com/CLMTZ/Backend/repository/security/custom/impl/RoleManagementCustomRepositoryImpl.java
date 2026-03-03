@@ -4,18 +4,13 @@ import java.util.List;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
-import com.CLMTZ.Backend.dto.security.Request.RoleManagementRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.FlatRoleMappingDTO;
 import com.CLMTZ.Backend.dto.security.Response.RoleListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
-import com.CLMTZ.Backend.model.security.RoleManagement;
-import com.CLMTZ.Backend.repository.security.IRoleManagementRepository;
-import com.CLMTZ.Backend.repository.security.IRoleRepository;
 import com.CLMTZ.Backend.repository.security.custom.IRoleManagementCustomRepository;
 
 import jakarta.persistence.EntityManager;
@@ -31,14 +26,7 @@ public class RoleManagementCustomRepositoryImpl implements IRoleManagementCustom
     @PersistenceContext
     private EntityManager entityManager;
 
-    private final IRoleRepository roleRepo;
-    private final IRoleManagementRepository roleManagementRepo;
-
     private final DynamicDataSourceService dynamicDataSourceService;
-
-    private NamedParameterJdbcTemplate getJdbcTemplate() {
-        return dynamicDataSourceService.getJdbcTemplate();
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -47,7 +35,7 @@ public class RoleManagementCustomRepositoryImpl implements IRoleManagementCustom
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("p_filtro_texto", filter != null ? filter : "")
                 .addValue("p_estado", state);
-        return getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(RoleListManagementResponseDTO.class));
+        return dynamicDataSourceService.getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(RoleListManagementResponseDTO.class));
     }
 
     @Override
@@ -103,6 +91,6 @@ public class RoleManagementCustomRepositoryImpl implements IRoleManagementCustom
     public List<FlatRoleMappingDTO> listRoleManagementRole() {
         String query = "select * from seguridad.fn_sl_rolservidor_rolapp()";
 
-        return getJdbcTemplate().query(query, new BeanPropertyRowMapper<>(FlatRoleMappingDTO.class));
+        return dynamicDataSourceService.getJdbcTemplate().query(query, new BeanPropertyRowMapper<>(FlatRoleMappingDTO.class));
     }
 }

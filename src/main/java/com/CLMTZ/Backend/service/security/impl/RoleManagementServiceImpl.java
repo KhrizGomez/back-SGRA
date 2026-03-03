@@ -2,7 +2,6 @@ package com.CLMTZ.Backend.service.security.impl;
 
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -16,9 +15,9 @@ import com.CLMTZ.Backend.dto.security.Response.RoleListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.RoleListResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.model.security.RoleManagement;
-import com.CLMTZ.Backend.repository.security.IRoleManagementRepository;
-import com.CLMTZ.Backend.repository.security.IUserManagementRepository;
 import com.CLMTZ.Backend.repository.security.custom.IRoleManagementCustomRepository;
+import com.CLMTZ.Backend.repository.security.jpa.IRoleManagementRepository;
+import com.CLMTZ.Backend.repository.security.jpa.IUserManagementRepository;
 import com.CLMTZ.Backend.service.security.IRoleManagementService;
 
 import lombok.RequiredArgsConstructor;

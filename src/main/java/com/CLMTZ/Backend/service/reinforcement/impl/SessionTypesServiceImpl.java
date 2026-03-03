@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import com.CLMTZ.Backend.dto.reinforcement.SessionTypesDTO;
 import com.CLMTZ.Backend.model.reinforcement.SessionTypes;
-import com.CLMTZ.Backend.repository.reinforcement.ISessionTypesRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.ISessionTypesRepository;
 import com.CLMTZ.Backend.service.reinforcement.ISessionTypesService;
 import lombok.RequiredArgsConstructor;
 

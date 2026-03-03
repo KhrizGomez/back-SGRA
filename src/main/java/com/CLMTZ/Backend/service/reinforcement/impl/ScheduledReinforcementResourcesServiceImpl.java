@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 import com.CLMTZ.Backend.dto.reinforcement.ScheduledReinforcementResourcesDTO;
 import com.CLMTZ.Backend.model.reinforcement.ScheduledReinforcement;
 import com.CLMTZ.Backend.model.reinforcement.ScheduledReinforcementResources;
-import com.CLMTZ.Backend.repository.reinforcement.IScheduledReinforcementRepository;
-import com.CLMTZ.Backend.repository.reinforcement.IScheduledReinforcementResourcesRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IScheduledReinforcementRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IScheduledReinforcementResourcesRepository;
 import com.CLMTZ.Backend.service.reinforcement.IScheduledReinforcementResourcesService;
 import lombok.RequiredArgsConstructor;
 

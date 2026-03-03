@@ -1,13 +1,12 @@
 package com.CLMTZ.Backend.service.security.impl;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.dto.security.Request.RoleRequestDTO;
 import com.CLMTZ.Backend.model.security.Role;
-import com.CLMTZ.Backend.repository.security.IRoleRepository;
+import com.CLMTZ.Backend.repository.security.jpa.IRoleRepository;
 import com.CLMTZ.Backend.service.security.IRoleService;
 import lombok.RequiredArgsConstructor;
 

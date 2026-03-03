@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,10 +30,6 @@ public class ModuleCustomManagementRepository implements IModuleCustomManagement
 
     private final DynamicDataSourceService dynamicDataSourceService;
 
-    private NamedParameterJdbcTemplate getJdbcTemplate() {
-        return dynamicDataSourceService.getJdbcTemplate();
-    }
-
     @Override
     @Transactional(readOnly = true)
     public List<ModuleListManagementResponseDTO> listModuleManagements(String grole){
@@ -43,7 +38,7 @@ public class ModuleCustomManagementRepository implements IModuleCustomManagement
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("rol", grole);
         
-        return getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(ModuleListManagementResponseDTO.class));
+        return dynamicDataSourceService.getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(ModuleListManagementResponseDTO.class));
     }
 
     @Override
@@ -51,7 +46,7 @@ public class ModuleCustomManagementRepository implements IModuleCustomManagement
     public List<MasterTableListManagementResponseDTO> listMasterTables(){
         String query = "Select * from seguridad.fn_sl_tablas_maestras()";
         
-        return getJdbcTemplate().query(query, new BeanPropertyRowMapper<>(MasterTableListManagementResponseDTO.class));
+        return dynamicDataSourceService.getJdbcTemplate().query(query, new BeanPropertyRowMapper<>(MasterTableListManagementResponseDTO.class));
     }
 
     @Override
@@ -63,7 +58,7 @@ public class ModuleCustomManagementRepository implements IModuleCustomManagement
                 .addValue("p_esquematabla", schemaTable)
                 .addValue("p_filtro", filtro);
 
-        return getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(MasterDataListManagementResponseDTO.class));
+        return dynamicDataSourceService.getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(MasterDataListManagementResponseDTO.class));
     }
 
     @Override

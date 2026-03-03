@@ -2,8 +2,6 @@ package com.CLMTZ.Backend.service.external.impl;
 
 import java.util.Properties;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -11,9 +9,7 @@ import org.springframework.stereotype.Service;
 import com.CLMTZ.Backend.service.external.IEmailService;
 
 import jakarta.mail.internet.MimeMessage;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
 @Service

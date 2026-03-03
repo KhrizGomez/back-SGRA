@@ -8,7 +8,6 @@ import com.CLMTZ.Backend.repository.security.custom.IRoleManagementRoleCustomRep
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.ParameterMode;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 

@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,10 +30,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
 
     private final DynamicDataSourceService dynamicDataSourceService;
 
-    private NamedParameterJdbcTemplate getJdbcTemplate() {
-        return dynamicDataSourceService.getJdbcTemplate();
-    }
-
     @Override
     @Transactional(readOnly = true)
     public List<UserListManagementResponseDTO> listUsersManagement(String filterUser, LocalDate date, Boolean state) {
@@ -45,7 +40,7 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
                 .addValue("p_fecha", date)
                 .addValue("p_estado", state);
         
-        return getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(UserListManagementResponseDTO.class));
+        return dynamicDataSourceService.getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(UserListManagementResponseDTO.class));
     }
 
     @Override
@@ -98,7 +93,7 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("p_iduserg", idUser, Types.INTEGER);
 
-        List<UserRoleManagementResponseDTO> resultados = getJdbcTemplate().query(query, params, (rs, rowNum) -> {
+        List<UserRoleManagementResponseDTO> resultados = dynamicDataSourceService.getJdbcTemplate().query(query, params, (rs, rowNum) -> {
             UserRoleManagementResponseDTO dto = new UserRoleManagementResponseDTO();
             
             dto.setIdgu(rs.getInt(1));

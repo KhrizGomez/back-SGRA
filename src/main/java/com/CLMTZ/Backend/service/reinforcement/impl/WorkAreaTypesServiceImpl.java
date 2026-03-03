@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import com.CLMTZ.Backend.dto.reinforcement.WorkAreaTypesDTO;
 import com.CLMTZ.Backend.model.reinforcement.WorkAreaTypes;
-import com.CLMTZ.Backend.repository.reinforcement.IWorkAreaTypesRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IWorkAreaTypesRepository;
 import com.CLMTZ.Backend.service.reinforcement.IWorkAreaTypesService;
 import lombok.RequiredArgsConstructor;
 

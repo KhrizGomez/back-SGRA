@@ -9,7 +9,7 @@ import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.model.reinforcement.WorkAreaManager;
 import com.CLMTZ.Backend.repository.academic.IAcademicAreaRepository;
 import com.CLMTZ.Backend.repository.general.IUserRepository;
-import com.CLMTZ.Backend.repository.reinforcement.IWorkAreaManagerRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IWorkAreaManagerRepository;
 import com.CLMTZ.Backend.service.reinforcement.IWorkAreaManagerService;
 import lombok.RequiredArgsConstructor;
 

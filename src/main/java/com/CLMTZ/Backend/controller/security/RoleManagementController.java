@@ -5,7 +5,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.CLMTZ.Backend.dto.security.Request.RoleManagementRequestDTO;
-import com.CLMTZ.Backend.dto.security.Request.RoleRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.RoleListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.RoleListResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;

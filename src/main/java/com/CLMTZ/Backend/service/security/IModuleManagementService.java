@@ -11,6 +11,7 @@ import com.CLMTZ.Backend.dto.security.Response.ModuleListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 
 public interface IModuleManagementService {
+
     List<ModuleListManagementResponseDTO> listModuleManagements(String role);
 
     List<MasterTableListManagementResponseDTO> listMasterTables();
@@ -22,4 +23,5 @@ public interface IModuleManagementService {
     SpResponseDTO masterTablesManagement(MasterManagementRequestDTO masterTables);
 
     SpResponseDTO masterDataUpdateManagement(MasterDataManagementRequestDTO dataUpdate);
+    
 }

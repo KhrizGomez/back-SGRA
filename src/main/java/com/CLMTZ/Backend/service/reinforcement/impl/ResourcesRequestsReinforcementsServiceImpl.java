@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 import com.CLMTZ.Backend.dto.reinforcement.ResourcesRequestsReinforcementsDTO;
 import com.CLMTZ.Backend.model.reinforcement.ReinforcementRequest;
 import com.CLMTZ.Backend.model.reinforcement.ResourcesRequestsReinforcements;
-import com.CLMTZ.Backend.repository.reinforcement.IReinforcementRequestRepository;
-import com.CLMTZ.Backend.repository.reinforcement.IResourcesRequestsReinforcementsRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IReinforcementRequestRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IResourcesRequestsReinforcementsRepository;
 import com.CLMTZ.Backend.service.reinforcement.IResourcesRequestsReinforcementsService;
 import lombok.RequiredArgsConstructor;
 

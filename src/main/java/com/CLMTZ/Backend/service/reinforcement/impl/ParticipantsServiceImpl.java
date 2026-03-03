@@ -5,9 +5,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import com.CLMTZ.Backend.dto.reinforcement.ParticipantsDTO;
 import com.CLMTZ.Backend.model.reinforcement.Participants;
-import com.CLMTZ.Backend.repository.reinforcement.IParticipantsRepository;
-import com.CLMTZ.Backend.repository.reinforcement.IReinforcementRequestRepository;
 import com.CLMTZ.Backend.repository.academic.IStudentsRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IParticipantsRepository;
+import com.CLMTZ.Backend.repository.reinforcement.jpa.IReinforcementRequestRepository;
 import com.CLMTZ.Backend.service.reinforcement.IParticipantsService;
 import lombok.RequiredArgsConstructor;
 

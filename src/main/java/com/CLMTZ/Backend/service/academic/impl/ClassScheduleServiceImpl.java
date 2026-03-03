@@ -24,8 +24,7 @@ public class ClassScheduleServiceImpl implements IClassScheduleService {
     private final ITimeSlotRepository timeSlotRepository;
     private final IClassRepository classRepository;
     private final IPeriodRepository periodRepository;
-    private final ITeachingRepository teachingRepository;
-
+    
     @Override
     public List<ClassScheduleDTO> findAll() {
         return repository.findAll().stream().map(this::toDTO).collect(Collectors.toList());
