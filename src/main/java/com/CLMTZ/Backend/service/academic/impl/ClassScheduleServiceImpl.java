@@ -14,7 +14,6 @@ import com.CLMTZ.Backend.repository.academic.*;
 import com.CLMTZ.Backend.service.academic.IClassScheduleService;
 
 import lombok.RequiredArgsConstructor;
-//import lombok.var;
 
 @Service
 @RequiredArgsConstructor
@@ -119,8 +118,13 @@ public class ClassScheduleServiceImpl implements IClassScheduleService {
                                 cedula, asignatura, paralelo, periodo);
 
                 if (claseOpt.isEmpty()) {
-                    resultados.add("Fila " + filaExcel
-                            + ": ERROR (No existe clase asignada para ese docente/asignatura/paralelo/periodo)");
+                    resultados.add("Fila " + filaExcel + ": ERROR (No existe clase asignada para ese docente/asignatura/paralelo/periodo)");
+                    continue;
+                }
+
+                // 3. BUSCAR FRANJA HORARIA
+                if (fila.getHoraInicio() == null || fila.getHoraFin() == null) {
+                    resultados.add("Fila " + filaExcel + ": ERROR (Las horas de inicio y fin son obligatorias)");
                     continue;
                 }
 
@@ -131,7 +135,6 @@ public class ClassScheduleServiceImpl implements IClassScheduleService {
                 }
 
                 var franjaOpt = timeSlotRepository.findByStartTimeAndEndTime(fila.getHoraInicio(), fila.getHoraFin());
-
                 if (franjaOpt.isEmpty()) {
                     resultados.add("Fila " + filaExcel + ": ERROR (No existe franja horaria para "
                             + fila.getHoraInicio() + " - " + fila.getHoraFin() + ")");
@@ -173,10 +176,7 @@ public class ClassScheduleServiceImpl implements IClassScheduleService {
                 resultados.add("Fila " + filaExcel + ": OK");
 
             } catch (Exception e) {
-                // Atrapamos el error e imprimimos la traza en consola para que sepas
-                // exactamente qué falló
-                e.printStackTrace();
-                resultados.add("Fila " + filaExcel + ": ERROR INTERNO (" + e.getMessage() + ")");
+                resultados.add("Fila " + filaExcel + ": ERROR (" + e.getMessage() + ")");
             }
         }
         return resultados;
@@ -243,3 +243,5 @@ public class ClassScheduleServiceImpl implements IClassScheduleService {
         return dto;
     }
 }
+
+
