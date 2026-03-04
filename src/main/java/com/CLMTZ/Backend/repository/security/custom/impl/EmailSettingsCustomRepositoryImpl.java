@@ -5,8 +5,6 @@ import java.sql.Connection;
 import java.sql.Types;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -22,10 +20,7 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class EmailSettingsCustomRepository implements IEmailSettingsCustomRepository{
-
-    private static final Logger log = LoggerFactory.getLogger(EmailSettingsCustomRepository.class);
-
+public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRepository{
     private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override

@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class RoleManagementRoleCustomRepository implements IRoleManagementRoleCustomRepository{
+public class RoleManagementRoleCustomRepositoryImpl implements IRoleManagementRoleCustomRepository{
     
     private final DynamicDataSourceService dynamicDataSourceService;
 
