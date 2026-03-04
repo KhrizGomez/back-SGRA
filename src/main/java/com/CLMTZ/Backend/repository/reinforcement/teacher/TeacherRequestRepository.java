@@ -7,10 +7,10 @@ public interface TeacherRequestRepository {
     TeacherRequestsPageDTO getIncomingRequests(Integer userId, Integer statusId, Integer page, Integer size);
     TeacherActionResponseDTO acceptRequest(Integer userId, Integer requestId, String scheduledDate,
                                            Integer timeSlotId, Integer modalityId, String estimatedDuration,
-                                           String reason, Integer workAreaId);
+                                           String reason, Integer workAreaTypeId);
     TeacherActionResponseDTO rejectRequest(Integer userId, Integer requestId, String reason);
     TeacherActionResponseDTO rescheduleRequest(Integer userId, Integer requestId, String scheduledDate,
                                                Integer timeSlotId, Integer modalityId, String estimatedDuration,
-                                               String reason, Integer workAreaId);
+                                               String reason, Integer workAreaTypeId);
     TeacherActionResponseDTO cancelSession(Integer userId, Integer scheduledId, String reason);
 }

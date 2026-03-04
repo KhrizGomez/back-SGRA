@@ -30,21 +30,33 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
         private Integer getTeacherId(Integer userId) {
                 String sql = "SELECT iddocente FROM academico.tbdocentes WHERE idusuario = :userId AND estado = TRUE";
                 MapSqlParameterSource params = new MapSqlParameterSource("userId", userId);
-                return getJdbcTemplate().queryForObject(sql, params, Integer.class);
+                List<Integer> rows = getJdbcTemplate().queryForList(sql, params, Integer.class);
+                if (rows.isEmpty()) {
+                        throw new RuntimeException("No se encontró docente activo para el usuario " + userId);
+                }
+                return rows.get(0);
         }
 
         private Integer getRequestStatusId(String statusName) {
                 String sql = "SELECT idestadosolicitudrefuerzo FROM reforzamiento.tbestadossolicitudesrefuerzos " +
                                 "WHERE LOWER(nombreestado) = LOWER(:statusName) LIMIT 1";
                 MapSqlParameterSource params = new MapSqlParameterSource("statusName", statusName);
-                return getJdbcTemplate().queryForObject(sql, params, Integer.class);
+                List<Integer> rows = getJdbcTemplate().queryForList(sql, params, Integer.class);
+                if (rows.isEmpty()) {
+                        throw new RuntimeException("Estado de solicitud '" + statusName + "' no encontrado en tbestadossolicitudesrefuerzos");
+                }
+                return rows.get(0);
         }
 
         private Integer getScheduledStatusId(String statusName) {
                 String sql = "SELECT idestadorefuerzoprogramado FROM reforzamiento.tbestadosrefuerzosprogramados " +
-                                "WHERE LOWER(estadorefuerzoprogramado) LIKE LOWER(:statusName) || '%' LIMIT 1";
+                                "WHERE LOWER(estadorefuerzoprogramado) = LOWER(:statusName) LIMIT 1";
                 MapSqlParameterSource params = new MapSqlParameterSource("statusName", statusName);
-                return getJdbcTemplate().queryForObject(sql, params, Integer.class);
+                List<Integer> rows = getJdbcTemplate().queryForList(sql, params, Integer.class);
+                if (rows.isEmpty()) {
+                        throw new RuntimeException("Estado de refuerzo programado '" + statusName + "' no encontrado en tbestadosrefuerzosprogramados");
+                }
+                return rows.get(0);
         }
 
         @Override
@@ -118,7 +130,7 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
         @Transactional
         public TeacherActionResponseDTO acceptRequest(Integer userId, Integer requestId, String scheduledDate,
                         Integer timeSlotId, Integer modalityId, String estimatedDuration,
-                        String reason, Integer workAreaId) {
+                        String reason, Integer workAreaTypeId) {
                 Integer teacherId = getTeacherId(userId);
 
                 // Verify ownership and status (must be Pendiente)
@@ -138,7 +150,7 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
 
                 // Get status IDs
                 Integer aceptadaId = getRequestStatusId("Aceptada");
-                Integer scheduledPendienteId = getScheduledStatusId("Pendiente");
+                Integer scheduledPendienteId = getScheduledStatusId("Espera espacio");
 
                 // Get the session type from the request
                 String sessionTypeSql = "SELECT idtiposesion FROM reforzamiento.tbsolicitudesrefuerzos " +
@@ -183,19 +195,13 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                 detailParams.addValue("scheduledId", scheduledId);
                 getJdbcTemplate().update(insertDetailSql, detailParams);
 
-                // If in-person modality and workAreaId provided, insert on-site record
-                if (workAreaId != null) {
-                        String workAreaTypeSql = "SELECT idtipoareatrabajo FROM reforzamiento.tbareastrabajos " +
-                                        "WHERE idareatrabajo = :workAreaId";
-                        Integer workAreaTypeId = getJdbcTemplate().queryForObject(workAreaTypeSql,
-                                        new MapSqlParameterSource("workAreaId", workAreaId), Integer.class);
-
+                // If in-person modality, insert on-site record with workAreaTypeId
+                if (workAreaTypeId != null) {
                         String insertPresencialSql = "INSERT INTO reforzamiento.tbrefuerzospresenciales " +
-                                        "(idrefuerzoprogramado, idareatrabajo, idtipoareatrabajo, estado) " +
-                                        "VALUES (:scheduledId, :workAreaId, :workAreaTypeId, TRUE)";
+                                        "(idrefuerzoprogramado, idtipoareatrabajo, estado) " +
+                                        "VALUES (:scheduledId, :workAreaTypeId, TRUE)";
                         MapSqlParameterSource presencialParams = new MapSqlParameterSource();
                         presencialParams.addValue("scheduledId", scheduledId);
-                        presencialParams.addValue("workAreaId", workAreaId);
                         presencialParams.addValue("workAreaTypeId", workAreaTypeId);
                         getJdbcTemplate().update(insertPresencialSql, presencialParams);
                 }
@@ -240,7 +246,7 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
         @Transactional
         public TeacherActionResponseDTO rescheduleRequest(Integer userId, Integer requestId, String scheduledDate,
                         Integer timeSlotId, Integer modalityId, String estimatedDuration,
-                        String reason, Integer workAreaId) {
+                        String reason, Integer workAreaTypeId) {
                 Integer teacherId = getTeacherId(userId);
                 Integer aceptadaId = getRequestStatusId("Aceptada");
 
@@ -286,35 +292,28 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                 updateParams.addValue("scheduledId", scheduledId);
                 getJdbcTemplate().update(updateSql, updateParams);
 
-                // Update on-site reinforcement record if workAreaId provided
-                if (workAreaId != null) {
+                // Update on-site reinforcement record if workAreaTypeId provided (Presencial)
+                if (workAreaTypeId != null) {
                         String checkPresencialSql = "SELECT COUNT(*) FROM reforzamiento.tbrefuerzospresenciales " +
                                         "WHERE idrefuerzoprogramado = :scheduledId";
-                        Integer presencialCount = getJdbcTemplate().queryForObject(checkPresencialSql,
+                        List<Integer> presencialRows = getJdbcTemplate().queryForList(checkPresencialSql,
                                         new MapSqlParameterSource("scheduledId", scheduledId), Integer.class);
-
-                        String workAreaTypeSql = "SELECT idtipoareatrabajo FROM reforzamiento.tbareastrabajos " +
-                                        "WHERE idareatrabajo = :workAreaId";
-                        Integer workAreaTypeId = getJdbcTemplate().queryForObject(workAreaTypeSql,
-                                        new MapSqlParameterSource("workAreaId", workAreaId), Integer.class);
+                        Integer presencialCount = presencialRows.isEmpty() ? 0 : presencialRows.get(0);
 
                         if (presencialCount != null && presencialCount > 0) {
                                 String updatePresencialSql = "UPDATE reforzamiento.tbrefuerzospresenciales " +
-                                                "SET idareatrabajo = :workAreaId, idtipoareatrabajo = :workAreaTypeId "
-                                                +
+                                                "SET idtipoareatrabajo = :workAreaTypeId " +
                                                 "WHERE idrefuerzoprogramado = :scheduledId";
                                 MapSqlParameterSource presencialParams = new MapSqlParameterSource();
-                                presencialParams.addValue("workAreaId", workAreaId);
                                 presencialParams.addValue("workAreaTypeId", workAreaTypeId);
                                 presencialParams.addValue("scheduledId", scheduledId);
                                 getJdbcTemplate().update(updatePresencialSql, presencialParams);
                         } else {
                                 String insertPresencialSql = "INSERT INTO reforzamiento.tbrefuerzospresenciales " +
-                                                "(idrefuerzoprogramado, idareatrabajo, idtipoareatrabajo, estado) " +
-                                                "VALUES (:scheduledId, :workAreaId, :workAreaTypeId, TRUE)";
+                                                "(idrefuerzoprogramado, idtipoareatrabajo, estado) " +
+                                                "VALUES (:scheduledId, :workAreaTypeId, TRUE)";
                                 MapSqlParameterSource presencialParams = new MapSqlParameterSource();
                                 presencialParams.addValue("scheduledId", scheduledId);
-                                presencialParams.addValue("workAreaId", workAreaId);
                                 presencialParams.addValue("workAreaTypeId", workAreaTypeId);
                                 getJdbcTemplate().update(insertPresencialSql, presencialParams);
                         }
@@ -326,26 +325,35 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
 
         @Override
         @Transactional
-        public TeacherActionResponseDTO cancelSession(Integer userId, Integer scheduledId, String reason) {
+        public TeacherActionResponseDTO cancelSession(Integer userId, Integer requestId, String reason) {
                 Integer teacherId = getTeacherId(userId);
 
-                // Verify the teacher owns at least one request linked to this session
-                String checkSql = "SELECT COUNT(*) " +
-                                "FROM reforzamiento.tbdetallesrefuerzosprogramadas d " +
-                                "JOIN reforzamiento.tbsolicitudesrefuerzos sr ON d.idsolicitudrefuerzo = sr.idsolicitudrefuerzo "
-                                +
-                                "WHERE d.idrefuerzoprogramado = :scheduledId AND sr.iddocente = :teacherId";
+                // Verify the teacher owns this request
+                String checkRequestSql = "SELECT COUNT(*) FROM reforzamiento.tbsolicitudesrefuerzos " +
+                                "WHERE idsolicitudrefuerzo = :requestId AND iddocente = :teacherId";
                 MapSqlParameterSource checkParams = new MapSqlParameterSource();
-                checkParams.addValue("scheduledId", scheduledId);
+                checkParams.addValue("requestId", requestId);
                 checkParams.addValue("teacherId", teacherId);
-                Integer count = getJdbcTemplate().queryForObject(checkSql, checkParams, Integer.class);
-                if (count == null || count == 0) {
-                        return new TeacherActionResponseDTO(scheduledId, "ERROR",
-                                        "Sesión no encontrada o no pertenece a este docente");
+                List<Integer> checkRows = getJdbcTemplate().queryForList(checkRequestSql, checkParams, Integer.class);
+                if (checkRows.isEmpty() || checkRows.get(0) == 0) {
+                        return new TeacherActionResponseDTO(requestId, "ERROR",
+                                        "Solicitud no encontrada o no pertenece a este docente");
                 }
 
+                // Resolve scheduledId from requestId via the detail table
+                String findScheduledSql = "SELECT d.idrefuerzoprogramado " +
+                                "FROM reforzamiento.tbdetallesrefuerzosprogramadas d " +
+                                "WHERE d.idsolicitudrefuerzo = :requestId AND d.estado = TRUE LIMIT 1";
+                List<Integer> scheduledRows = getJdbcTemplate().queryForList(findScheduledSql,
+                                new MapSqlParameterSource("requestId", requestId), Integer.class);
+                if (scheduledRows.isEmpty()) {
+                        return new TeacherActionResponseDTO(requestId, "ERROR",
+                                        "No se encontró sesión programada activa para esta solicitud");
+                }
+                Integer scheduledId = scheduledRows.get(0);
+
                 // Get cancelled status ID for scheduled reinforcement
-                Integer canceladaScheduledId = getScheduledStatusId("Cancelada");
+                Integer canceladaScheduledId = getScheduledStatusId("Cancelado");
 
                 String updateSql = "UPDATE reforzamiento.tbrefuerzosprogramados " +
                                 "SET idestadorefuerzoprogramado = :canceladaId " +

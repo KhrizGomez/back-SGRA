@@ -53,7 +53,8 @@ public class TeacherRequestController {
 
     /**
      * RF10 + RF11: Accept a pending request and schedule the session.
-     * Body: { scheduledDate, timeSlotId, modalityId, estimatedDuration, reason, workAreaId (optional) }
+     * Body: { scheduledDate, startTime, endTime, modalityId, estimatedDuration, reason, workAreaId (optional) }
+     * startTime / endTime in "HH:mm" format. The service resolves or creates the TimeSlot.
      */
     @PutMapping("/{requestId}/accept")
     public ResponseEntity<?> acceptRequest(
@@ -66,10 +67,11 @@ public class TeacherRequestController {
             if (requestId == null || requestId <= 0) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Invalid requestId"));
             }
-            if (dto.getScheduledDate() == null || dto.getTimeSlotId() == null
-                    || dto.getModalityId() == null || dto.getEstimatedDuration() == null) {
+            if (dto.getScheduledDate() == null || dto.getStartTime() == null
+                    || dto.getEndTime() == null || dto.getModalityId() == null
+                    || dto.getEstimatedDuration() == null) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("message", "scheduledDate, timeSlotId, modalityId y estimatedDuration son requeridos"));
+                        .body(Map.of("message", "scheduledDate, startTime, endTime, modalityId y estimatedDuration son requeridos"));
             }
 
             var response = teacherRequestService.acceptRequest(userId, requestId, dto);
@@ -118,7 +120,8 @@ public class TeacherRequestController {
     /**
      * RF11: Reschedule an already-accepted session.
      * Only available when status is "Aceptada".
-     * Body: { scheduledDate, timeSlotId, modalityId, estimatedDuration, reason, workAreaId (optional) }
+     * Body: { scheduledDate, startTime, endTime, modalityId, estimatedDuration, reason, workAreaId (optional) }
+     * startTime / endTime in "HH:mm" format. The service resolves or creates the TimeSlot.
      */
     @PutMapping("/{requestId}/reschedule")
     public ResponseEntity<?> rescheduleRequest(
@@ -131,10 +134,11 @@ public class TeacherRequestController {
             if (requestId == null || requestId <= 0) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Invalid requestId"));
             }
-            if (dto.getScheduledDate() == null || dto.getTimeSlotId() == null
-                    || dto.getModalityId() == null || dto.getEstimatedDuration() == null) {
+            if (dto.getScheduledDate() == null || dto.getStartTime() == null
+                    || dto.getEndTime() == null || dto.getModalityId() == null
+                    || dto.getEstimatedDuration() == null) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("message", "scheduledDate, timeSlotId, modalityId y estimatedDuration son requeridos"));
+                        .body(Map.of("message", "scheduledDate, startTime, endTime, modalityId y estimatedDuration son requeridos"));
             }
 
             var response = teacherRequestService.rescheduleRequest(userId, requestId, dto);
@@ -152,22 +156,23 @@ public class TeacherRequestController {
 
     /**
      * RF15: Cancel an accepted/scheduled session.
+     * Receives the requestId (same as accept/reject). Resolves scheduledId internally.
      * Body: { reason } (optional)
      */
-    @PutMapping("/{scheduledId}/cancel")
+    @PutMapping("/{requestId}/cancel")
     public ResponseEntity<?> cancelSession(
-            @PathVariable("scheduledId") Integer scheduledId,
+            @PathVariable("requestId") Integer requestId,
             @RequestBody(required = false) TeacherCancelSessionDTO dto) {
         try {
             UserContext ctx = UserContextHolder.getContext();
             Integer userId = ctx.getUserId();
 
-            if (scheduledId == null || scheduledId <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid scheduledId"));
+            if (requestId == null || requestId <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid requestId"));
             }
 
             String reason = dto != null ? dto.getReason() : null;
-            var response = teacherRequestService.cancelSession(userId, scheduledId, reason);
+            var response = teacherRequestService.cancelSession(userId, requestId, reason);
 
             if ("ERROR".equals(response.getStatus())) {
                 return ResponseEntity.status(409).body(response);
