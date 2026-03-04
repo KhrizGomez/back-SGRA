@@ -195,6 +195,23 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                 detailParams.addValue("scheduledId", scheduledId);
                 getJdbcTemplate().update(insertDetailSql, detailParams);
 
+                // Auto-register attendance rows for every participant of this request
+                String getParticipantsSql = "SELECT idparticipante FROM reforzamiento.tbparticipantes " +
+                                "WHERE idsolicitudrefuerzo = :requestId";
+                List<Integer> participantIds = getJdbcTemplate().queryForList(
+                                getParticipantsSql,
+                                new MapSqlParameterSource("requestId", requestId),
+                                Integer.class);
+                for (Integer participantId : participantIds) {
+                        String insertAttendanceSql = "INSERT INTO reforzamiento.tbasistenciasrefuerzos " +
+                                        "(idrefuerzoprogramado, idparticipante, asistencia) " +
+                                        "VALUES (:scheduledId, :participantId, FALSE)";
+                        MapSqlParameterSource attendanceParams = new MapSqlParameterSource();
+                        attendanceParams.addValue("scheduledId", scheduledId);
+                        attendanceParams.addValue("participantId", participantId);
+                        getJdbcTemplate().update(insertAttendanceSql, attendanceParams);
+                }
+
                 // If in-person modality, insert on-site record with workAreaTypeId
                 if (workAreaTypeId != null) {
                         String insertPresencialSql = "INSERT INTO reforzamiento.tbrefuerzospresenciales " +

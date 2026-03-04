@@ -1,6 +1,7 @@
 package com.CLMTZ.Backend.controller.reinforcement.teacher;
 
 import com.CLMTZ.Backend.config.UserContextHolder;
+import com.CLMTZ.Backend.dto.reinforcement.teacher.AttendanceItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherAttendanceMarkDTO;
 // import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherRegisterResultDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherVirtualLinkDTO;
@@ -43,6 +44,55 @@ public class TeacherSessionController {
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(Map.of("message", "Error obteniendo sesiones activas: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/teacher/sessions/{scheduledId}/participants
+     * Lista los participantes de la sesión con su estado de asistencia actual.
+     */
+    @GetMapping("/{scheduledId}/participants")
+    public ResponseEntity<?> getSessionAttendance(
+            @PathVariable("scheduledId") Integer scheduledId) {
+        try {
+            UserContext ctx = UserContextHolder.getContext();
+            Integer userId = ctx.getUserId();
+            if (scheduledId == null || scheduledId <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid scheduledId"));
+            }
+            return ResponseEntity.ok(teacherSessionService.getSessionAttendance(userId, scheduledId));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Error obteniendo participantes: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * PUT /api/teacher/sessions/{scheduledId}/participants
+     * Registra/actualiza la asistencia de todos los participantes en tbasistenciasrefuerzos.
+     * Body: [ { "participantId": 1, "attended": true }, ... ]
+     */
+    @PutMapping("/{scheduledId}/participants")
+    public ResponseEntity<?> updateSessionAttendance(
+            @PathVariable("scheduledId") Integer scheduledId,
+            @RequestBody List<AttendanceItemDTO> attendances) {
+        try {
+            UserContext ctx = UserContextHolder.getContext();
+            Integer userId = ctx.getUserId();
+            if (scheduledId == null || scheduledId <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid scheduledId"));
+            }
+            if (attendances == null || attendances.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "La lista de participantes no puede estar vacía"));
+            }
+            var response = teacherSessionService.updateSessionAttendance(userId, scheduledId, attendances);
+            if ("ERROR".equals(response.getStatus())) {
+                return ResponseEntity.status(409).body(response);
+            }
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Error registrando asistencia: " + e.getMessage()));
         }
     }
 

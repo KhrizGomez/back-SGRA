@@ -2,6 +2,7 @@ package com.CLMTZ.Backend.repository.reinforcement.teacher.impl;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.AttendanceItemDTO;
+import com.CLMTZ.Backend.dto.reinforcement.teacher.ParticipantAttendanceDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActionResponseDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActiveSessionItemDTO;
 import com.CLMTZ.Backend.repository.reinforcement.teacher.TeacherSessionRepository;
@@ -111,6 +112,56 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
     }
 
     /**
+     * GET attendance list for a scheduled session (uses idrefuerzoprogramado).
+     */
+    @Override
+    public List<ParticipantAttendanceDTO> getSessionAttendance(Integer userId, Integer scheduledId) {
+        String sql = "SELECT a.idasistencia, a.idparticipante, " +
+                "CONCAT(u.nombres, ' ', u.apellidos) AS student_name, a.asistencia " +
+                "FROM reforzamiento.tbasistenciasrefuerzos a " +
+                "JOIN reforzamiento.tbparticipantes p ON a.idparticipante = p.idparticipante " +
+                "JOIN academico.tbestudiantes e ON p.idestudiante = e.idestudiante " +
+                "JOIN general.tbusuarios u ON e.idusuario = u.idusuario " +
+                "WHERE a.idrefuerzoprogramado = :scheduledId " +
+                "ORDER BY u.apellidos, u.nombres";
+
+        List<ParticipantAttendanceDTO> result = new ArrayList<>();
+        getJdbcTemplate().query(sql, new MapSqlParameterSource("scheduledId", scheduledId), rs -> {
+            result.add(new ParticipantAttendanceDTO(
+                    rs.getInt("idasistencia"),
+                    rs.getInt("idparticipante"),
+                    rs.getString("student_name"),
+                    rs.getBoolean("asistencia")));
+        });
+        return result;
+    }
+
+    /**
+     * PUT bulk attendance update for a scheduled session (uses idrefuerzoprogramado).
+     */
+    @Override
+    @Transactional
+    public TeacherActionResponseDTO updateSessionAttendance(Integer userId, Integer scheduledId,
+                                                            List<AttendanceItemDTO> attendances) {
+        if (!validateTeacherOwnsSession(getTeacherId(userId), scheduledId)) {
+            return new TeacherActionResponseDTO(scheduledId, "ERROR",
+                    "Sesión no encontrada o no pertenece a este docente");
+        }
+        for (AttendanceItemDTO item : attendances) {
+            String updateSql = "UPDATE reforzamiento.tbasistenciasrefuerzos " +
+                    "SET asistencia = :attended " +
+                    "WHERE idrefuerzoprogramado = :scheduledId AND idparticipante = :participantId";
+            MapSqlParameterSource p = new MapSqlParameterSource();
+            p.addValue("attended", item.getAttended());
+            p.addValue("scheduledId", scheduledId);
+            p.addValue("participantId", item.getParticipantId());
+            getJdbcTemplate().update(updateSql, p);
+        }
+        return new TeacherActionResponseDTO(scheduledId, "ATTENDANCE_UPDATED",
+                "Asistencia actualizada correctamente");
+    }
+
+    /**
      * RF13: Register virtual meeting link for a scheduled session.
      * Stored in tbrecursosrefuerzosprogramados as a URL resource.
      */
@@ -207,6 +258,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
         Integer count = getJdbcTemplate().queryForObject(checkSql,
                 new MapSqlParameterSource("scheduledId", scheduledId), Integer.class);
 
+        Integer performedId;
         if (count != null && count > 0) {
             // Update existing
             String updateSql = "UPDATE reforzamiento.tbrefuerzosrealizados " +
@@ -217,7 +269,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
             params.addValue("observation", observation);
             params.addValue("duration", duration);
             params.addValue("scheduledId", scheduledId);
-            return getJdbcTemplate().queryForObject(updateSql, params, Integer.class);
+            performedId = getJdbcTemplate().queryForObject(updateSql, params, Integer.class);
         } else {
             // Insert new
             String insertSql = "INSERT INTO reforzamiento.tbrefuerzosrealizados " +
@@ -228,8 +280,43 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
             params.addValue("duration", duration);
             params.addValue("observation", observation);
             params.addValue("scheduledId", scheduledId);
-            return getJdbcTemplate().queryForObject(insertSql, params, Integer.class);
+            performedId = getJdbcTemplate().queryForObject(insertSql, params, Integer.class);
         }
+
+        // Update session status to "Realizado" (id=3)
+        Integer realizadoStatusId = getScheduledStatusId("Realizado");
+        String updateStatusSql = "UPDATE reforzamiento.tbdetallesrefuerzosprogramadas " +
+                "SET idestadorefuerzoprogramado = :statusId " +
+                "WHERE idrefuerzoprogramado = :scheduledId";
+        MapSqlParameterSource statusParams = new MapSqlParameterSource();
+        statusParams.addValue("statusId", realizadoStatusId);
+        statusParams.addValue("scheduledId", scheduledId);
+        getJdbcTemplate().update(updateStatusSql, statusParams);
+
+        // Update reinforcement request status to "Completada"
+        String getRequestIdSql = "SELECT idsolicitudrefuerzo " +
+                "FROM reforzamiento.tbdetallesrefuerzosprogramadas " +
+                "WHERE idrefuerzoprogramado = :scheduledId LIMIT 1";
+        List<Integer> requestIds = getJdbcTemplate().queryForList(
+                getRequestIdSql, new MapSqlParameterSource("scheduledId", scheduledId), Integer.class);
+        if (!requestIds.isEmpty()) {
+            String getCompletadaIdSql = "SELECT idestadosolicitudrefuerzo " +
+                    "FROM reforzamiento.tbestadossolicitudesrefuerzos " +
+                    "WHERE LOWER(nombreestado) = 'completada' LIMIT 1";
+            List<Integer> completadaIds = getJdbcTemplate().queryForList(
+                    getCompletadaIdSql, new MapSqlParameterSource(), Integer.class);
+            if (!completadaIds.isEmpty()) {
+                String updateRequestSql = "UPDATE reforzamiento.tbsolicitudesrefuerzos " +
+                        "SET idestadosolicitudrefuerzo = :completadaId " +
+                        "WHERE idsolicitudrefuerzo = :requestId";
+                MapSqlParameterSource reqParams = new MapSqlParameterSource();
+                reqParams.addValue("completadaId", completadaIds.get(0));
+                reqParams.addValue("requestId", requestIds.get(0));
+                getJdbcTemplate().update(updateRequestSql, reqParams);
+            }
+        }
+
+        return performedId;
     }
 
     /**
