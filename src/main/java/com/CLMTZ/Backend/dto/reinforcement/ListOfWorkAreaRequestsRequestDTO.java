@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 public class ListOfWorkAreaRequestsRequestDTO {
     private Integer pidrefuerzopresencial;
     private Integer pidrefuerzoprogramado;
+    private Integer pidtipoareatrabajo;
     private LocalTime phorainicio;
     private LocalTime phorariofin;
     private LocalDate pfechaprogramadarefuerzo;
