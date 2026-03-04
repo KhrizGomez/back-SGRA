@@ -7,6 +7,7 @@ import com.CLMTZ.Backend.model.academic.Students;
 import com.CLMTZ.Backend.model.academic.Teaching;
 import com.CLMTZ.Backend.model.reinforcement.WorkAreaManager;
 import com.CLMTZ.Backend.model.security.Access;
+import com.CLMTZ.Backend.model.security.AccessAudit;
 import com.CLMTZ.Backend.model.security.EmailSettings;
 import com.CLMTZ.Backend.model.security.UserUserManagement;
 import com.CLMTZ.Backend.model.security.UsersRoles;
@@ -70,6 +71,9 @@ public class User {
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private UserUserManagement userUserManagement;
+
+    @OneToMany(mappedBy = "userId", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private List<AccessAudit> accessAudit;
 
     @OneToMany(mappedBy = "userId", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<UsersRoles> usersRoles;
