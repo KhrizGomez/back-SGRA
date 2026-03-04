@@ -31,6 +31,22 @@ public class TeacherSessionController {
     }
 
     /**
+     * GET /api/teacher/sessions/active
+     * Returns sessions with status 'Espera espacio' or 'Reprogramado'.
+     */
+    @GetMapping("/active")
+    public ResponseEntity<?> getActiveSessions() {
+        try {
+            UserContext ctx = UserContextHolder.getContext();
+            Integer userId = ctx.getUserId();
+            return ResponseEntity.ok(teacherSessionService.getActiveSessions(userId));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Error obteniendo sesiones activas: " + e.getMessage()));
+        }
+    }
+
+    /**
      * RF13: Register virtual meeting link for a scheduled session.
      * Body: { url }
      */

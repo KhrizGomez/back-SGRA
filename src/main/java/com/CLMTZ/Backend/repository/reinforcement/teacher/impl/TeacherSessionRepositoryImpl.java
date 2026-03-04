@@ -3,12 +3,16 @@ package com.CLMTZ.Backend.repository.reinforcement.teacher.impl;
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.AttendanceItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActionResponseDTO;
+import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActiveSessionItemDTO;
 import com.CLMTZ.Backend.repository.reinforcement.teacher.TeacherSessionRepository;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Date;
+import java.sql.Time;
+import java.util.ArrayList;
 import java.util.List;
 
 @Repository
@@ -40,6 +44,70 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
         params.addValue("teacherId", teacherId);
         Integer count = getJdbcTemplate().queryForObject(sql, params, Integer.class);
         return count != null && count > 0;
+    }
+
+    /**
+     * Returns sessions with status 'Espera espacio' or 'Reprogramado' for the authenticated teacher.
+     */
+    @Override
+    public List<TeacherActiveSessionItemDTO> getActiveSessions(Integer userId) {
+        String sql = "SELECT DISTINCT ON (rp.idrefuerzoprogramado) " +
+                "rp.idrefuerzoprogramado AS scheduled_id, " +
+                "a.asignatura AS subject_name, " +
+                "rp.fechaprogramadarefuerzo AS scheduled_date, " +
+                "fh.horainicio AS start_time, " +
+                "fh.horariofin AS end_time, " +
+                "m.modalidad AS modality, " +
+                "rp.duracionestimado AS estimated_duration, " +
+                "est.estadorefuerzoprogramado AS status_name, " +
+                "ts.tiposesion AS session_type, " +
+                "(SELECT COUNT(*) FROM reforzamiento.tbdetallesrefuerzosprogramadas dd " +
+                " WHERE dd.idrefuerzoprogramado = rp.idrefuerzoprogramado) AS participant_count, " +
+                "(SELECT r.urlarchivorefuerzoprogramado FROM reforzamiento.tbrecursosrefuerzosprogramados r " +
+                " WHERE r.idrefuerzoprogramado = rp.idrefuerzoprogramado " +
+                " AND r.urlarchivorefuerzoprogramado LIKE 'virtual_link:%' LIMIT 1) AS virtual_link " +
+                "FROM reforzamiento.tbrefuerzosprogramados rp " +
+                "JOIN reforzamiento.tbestadosrefuerzosprogramados est " +
+                "  ON rp.idestadorefuerzoprogramado = est.idestadorefuerzoprogramado " +
+                "JOIN academico.tbmodalidades m ON rp.idmodalidad = m.idmodalidad " +
+                "JOIN academico.tbfranjashorarias fh ON rp.idfranjahoraria = fh.idfranjahoraria " +
+                "JOIN reforzamiento.tbtipossesiones ts ON rp.idtiposesion = ts.idtiposesion " +
+                "JOIN reforzamiento.tbdetallesrefuerzosprogramadas d " +
+                "  ON rp.idrefuerzoprogramado = d.idrefuerzoprogramado " +
+                "JOIN reforzamiento.tbsolicitudesrefuerzos sr " +
+                "  ON d.idsolicitudrefuerzo = sr.idsolicitudrefuerzo " +
+                "JOIN academico.tbasignaturas a ON sr.idasignatura = a.idasignatura " +
+                "JOIN academico.tbdocentes doc ON sr.iddocente = doc.iddocente " +
+                "WHERE doc.idusuario = :userId " +
+                "AND LOWER(est.estadorefuerzoprogramado) IN ('espera espacio', 'reprogramado') " +
+                "ORDER BY rp.idrefuerzoprogramado DESC, rp.fechaprogramadarefuerzo ASC";
+
+        MapSqlParameterSource params = new MapSqlParameterSource("userId", userId);
+        List<TeacherActiveSessionItemDTO> items = new ArrayList<>();
+
+        getJdbcTemplate().query(sql, params, rs -> {
+            TeacherActiveSessionItemDTO item = new TeacherActiveSessionItemDTO();
+            item.setScheduledId(rs.getInt("scheduled_id"));
+            item.setSubjectName(rs.getString("subject_name"));
+            Date date = rs.getDate("scheduled_date");
+            item.setScheduledDate(date != null ? date.toString() : null);
+            Time st = rs.getTime("start_time");
+            item.setStartTime(st != null ? st.toString().substring(0, 5) : null);
+            Time et = rs.getTime("end_time");
+            item.setEndTime(et != null ? et.toString().substring(0, 5) : null);
+            item.setModality(rs.getString("modality"));
+            Time dur = rs.getTime("estimated_duration");
+            item.setEstimatedDuration(dur != null ? dur.toString().substring(0, 5) : null);
+            item.setStatusName(rs.getString("status_name"));
+            item.setSessionType(rs.getString("session_type"));
+            item.setParticipantCount(rs.getInt("participant_count"));
+            String vl = rs.getString("virtual_link");
+            // Strip the "virtual_link:" prefix if present
+            item.setVirtualLink(vl != null ? vl.replace("virtual_link:", "").trim() : null);
+            items.add(item);
+        });
+
+        return items;
     }
 
     /**

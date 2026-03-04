@@ -2,6 +2,7 @@ package com.CLMTZ.Backend.service.reinforcement.teacher.impl;
 
 import com.CLMTZ.Backend.dto.reinforcement.teacher.AttendanceItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActionResponseDTO;
+import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActiveSessionItemDTO;
 import com.CLMTZ.Backend.repository.reinforcement.teacher.TeacherSessionRepository;
 import com.CLMTZ.Backend.service.external.IStorageService;
 import com.CLMTZ.Backend.service.reinforcement.teacher.TeacherSessionService;
@@ -20,6 +21,11 @@ public class TeacherSessionServiceImpl implements TeacherSessionService {
                                      IStorageService storageService) {
         this.teacherSessionRepository = teacherSessionRepository;
         this.storageService = storageService;
+    }
+
+    @Override
+    public List<TeacherActiveSessionItemDTO> getActiveSessions(Integer userId) {
+        return teacherSessionRepository.getActiveSessions(userId);
     }
 
     @Override
