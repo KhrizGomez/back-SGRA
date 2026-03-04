@@ -31,7 +31,15 @@ public class EmailSettingsServiceImpl implements IEmailSettingsService {
     @Transactional
     public SpResponseDTO createEmail(EmailSettingsRequestDTO emailDTO){
         try {
-            return EmailSettingsCustomRepo.createEmail(emailDTO.getIdusuario(), emailDTO.getPcorreoemisor(), emailDTO.getPaplicacionsontrasena());
+            return EmailSettingsCustomRepo.createEmail(
+                emailDTO.getIdusuario(),
+                emailDTO.getPcorreoemisor(),
+                emailDTO.getPaplicacionsontrasena(),
+                emailDTO.getPservidorsmtp(),
+                emailDTO.getPpuertosmtp(),
+                emailDTO.getPssl(),
+                emailDTO.getPnombreremitente()
+            );
         } catch (Exception e) {
             throw new RuntimeException("Error al guardar el nuevo correo: " + e.getMessage());
         }

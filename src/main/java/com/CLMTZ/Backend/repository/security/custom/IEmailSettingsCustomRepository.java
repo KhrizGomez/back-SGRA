@@ -9,5 +9,5 @@ public interface IEmailSettingsCustomRepository {
 
     List<EmailSettingsRequestDTO> listEmailSettings(String filter, Boolean state);
     
-    SpResponseDTO createEmail(Integer userid, String email, String passwordApp);
+    SpResponseDTO createEmail(Integer userid, String email, String passwordApp, String servidorSmtp, Integer puertoSmtp, Boolean ssl, String nombreRemitente);
 }
