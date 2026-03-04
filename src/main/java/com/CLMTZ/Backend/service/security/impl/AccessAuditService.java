@@ -27,7 +27,7 @@ public class AccessAuditService implements IAccessAuditService{
             ipAddress = request.getRemoteAddr();
         }
 
-        accessAuditRepo.createAccessAudit(attemptedUser, ipAddress, browser, true, action);
+        accessAuditRepo.createAccessAudit(attemptedUser, ipAddress, browser, action);
     }
 
     private String extractBrowser(String userAgent) {

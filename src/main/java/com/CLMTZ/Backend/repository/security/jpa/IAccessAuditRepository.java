@@ -11,6 +11,6 @@ import com.CLMTZ.Backend.model.security.AccessAudit;
 public interface IAccessAuditRepository extends JpaRepository<AccessAudit, Integer>{
 
     @Procedure(procedureName = "seguridad.sp_in_auditoriaacceso")
-    void createAccessAudit(@Param("p_usuariointentado") String attemptedUser, @Param("p_direccionip") String ipAddress,@Param("p_navegador") String browser, @Param("p_exitoacceso") Boolean success, @Param("p_accion") String action);
+    void createAccessAudit(@Param("p_usuariointentado") String attemptedUser, @Param("p_direccionip") String ipAddress,@Param("p_navegador") String browser, @Param("p_accion") String action);
 
 }

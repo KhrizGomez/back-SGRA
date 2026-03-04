@@ -36,9 +36,6 @@ public class AccessAudit {
     @JoinColumn(name = "idusuario", foreignKey = @ForeignKey(name = "fk_auditacceso_usuario"))
     private User userId;
 
-    @Column(name = "usuariointentado", length = 100, nullable = false)
-    private String attemptedUser;
-
     @Column(name = "direccionip", length = 50, nullable = false)
     private String ipAddress;
 
@@ -47,9 +44,6 @@ public class AccessAudit {
 
     @Column(name = "fechaacceso", nullable = false, columnDefinition = "timestamp default CURRENT_TIMESTAMP")
     private LocalDateTime accessDate;
-
-    @Column(name = "exito", nullable = false, columnDefinition = "boolean")
-    private Boolean success;
 
     @Column(name = "accion", length = 50, nullable = false)
     private String action;
