@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
-public class ModuleCustomManagementRepository implements IModuleCustomManagementRepository{
+public class ModuleCustomManagementRepositoryImpl implements IModuleCustomManagementRepository{
 
     private final DynamicDataSourceService dynamicDataSourceService;
 

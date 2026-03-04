@@ -2,9 +2,13 @@ package com.CLMTZ.Backend.service.security.impl;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.CLMTZ.Backend.dto.security.Response.AccessAuditResponseDTO;
+import com.CLMTZ.Backend.repository.security.custom.IAccessAuditCustomRepository;
 import com.CLMTZ.Backend.repository.security.jpa.IAccessAuditRepository;
 import com.CLMTZ.Backend.service.security.IAccessAuditService;
 
@@ -15,8 +19,9 @@ import lombok.RequiredArgsConstructor;
 public class AccessAuditService implements IAccessAuditService{
 
     private final IAccessAuditRepository accessAuditRepo;
+    private final IAccessAuditCustomRepository accessAuditCustomRepo;
 
-    @Transactional
+    @Override
     public void createAccessAuditLogin(HttpServletRequest request, String attemptedUser, String action){
 
         String browser = request.getHeader("User-Agent");
@@ -28,6 +33,18 @@ public class AccessAuditService implements IAccessAuditService{
         }
 
         accessAuditRepo.createAccessAudit(attemptedUser, ipAddress, browser, true, action);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccessAuditResponseDTO> listAccessAudit(){
+
+        try {
+            return accessAuditCustomRepo.listAccessAudit();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al listar la auditoria de sesiones: "+ e.getMessage());
+        }
+
     }
 
     private String extractBrowser(String userAgent) {
