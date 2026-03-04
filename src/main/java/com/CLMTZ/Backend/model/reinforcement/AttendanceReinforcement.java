@@ -20,8 +20,8 @@ public class AttendanceReinforcement {
     private Integer attendanceId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "idrefuerzorealizado", nullable = false, foreignKey = @ForeignKey(name = "fk_asistencia_realizado"))
-    private ReinforcementPerformed reinforcementPerformedId;
+    @JoinColumn(name = "idrefuerzoprogramado", nullable = false, foreignKey = @ForeignKey(name = "fk_asistencia_programado"))
+    private ScheduledReinforcement scheduledPerformedId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idparticipante", nullable = false, foreignKey = @ForeignKey(name = "fk_asistencia_participante"))

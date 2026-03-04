@@ -66,4 +66,7 @@ public class ScheduledReinforcement {
 
     @OneToMany(mappedBy = "scheduledReinforcement", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ScheduledReinforcementResources> scheduledReinforcementResources;
+
+    @OneToMany(mappedBy = "scheduledPerformedId", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AttendanceReinforcement> attendanceReinforcements;
 }
