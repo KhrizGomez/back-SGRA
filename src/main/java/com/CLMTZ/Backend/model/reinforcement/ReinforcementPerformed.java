@@ -6,8 +6,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import java.sql.Time;
-import java.util.List;
-
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
@@ -33,7 +31,4 @@ public class ReinforcementPerformed {
     
     @Column(name = "estado",nullable = false, columnDefinition = "char(1) default 'E' check (estado in ('F', 'E', 'I'))")
     private Character state;
-
-    @OneToMany(mappedBy = "reinforcementPerformedId", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<AttendanceReinforcement> attendanceReinforcements;
 }
