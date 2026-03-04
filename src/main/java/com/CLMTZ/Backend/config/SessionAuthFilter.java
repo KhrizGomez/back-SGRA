@@ -24,7 +24,10 @@ public class SessionAuthFilter implements Filter {
     // Rutas públicas que no requieren autenticación
     private static final List<String> PUBLIC_PATHS = Arrays.asList(
             "/api/auth/login",
-            "/api/auth/me"
+            "/api/auth/me",
+            "/api/auth/forgot-password",
+            "/api/auth/verify-code",
+            "/api/auth/reset-password"
     );
 
     // Rutas permitidas para usuarios con estado 'C' (cambio de contraseña obligatorio)

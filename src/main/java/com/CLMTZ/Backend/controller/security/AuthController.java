@@ -4,7 +4,10 @@ import com.CLMTZ.Backend.dto.security.Request.ChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.LoginRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.LoginResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
+import com.CLMTZ.Backend.service.security.IAccessAuditService;
 import com.CLMTZ.Backend.service.security.IAuthService;
+
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,11 +22,13 @@ import java.util.Map;
 public class AuthController {
 
     private final IAuthService authService;
+    private final IAccessAuditService accessAuditSer;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequestDTO request, HttpSession session) {
+    public ResponseEntity<?> login(@RequestBody LoginRequestDTO request, HttpSession session, HttpServletRequest requestSer) {
         try {
             LoginResponseDTO response = authService.login(request, session);
+            accessAuditSer.createAccessAuditLogin(requestSer, request.getUsername(), "Acceso");
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
