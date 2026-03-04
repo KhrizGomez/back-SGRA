@@ -121,6 +121,13 @@
 			<artifactId>spring-cloud-azure-starter-storage-blob</artifactId>
 		</dependency>
 
+		<!-- OpenPDF para generación de reportes PDF -->
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>2.0.3</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>
