@@ -47,6 +47,17 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
         return count != null && count > 0;
     }
 
+    private Integer getScheduledStatusId(String statusName) {
+        String sql = "SELECT idestadorefuerzoprogramado FROM reforzamiento.tbestadosrefuerzosprogramados " +
+                "WHERE LOWER(estadorefuerzoprogramado) = LOWER(:statusName) LIMIT 1";
+        List<Integer> rows = getJdbcTemplate().queryForList(
+                sql, new MapSqlParameterSource("statusName", statusName), Integer.class);
+        if (rows.isEmpty()) {
+            throw new RuntimeException("Estado de sesión '" + statusName + "' no encontrado en tbestadosrefuerzosprogramados");
+        }
+        return rows.get(0);
+    }
+
     /**
      * Returns sessions with status 'Espera espacio' or 'Reprogramado' for the authenticated teacher.
      */
@@ -285,7 +296,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
 
         // Update session status to "Realizado" (id=3)
         Integer realizadoStatusId = getScheduledStatusId("Realizado");
-        String updateStatusSql = "UPDATE reforzamiento.tbdetallesrefuerzosprogramadas " +
+        String updateStatusSql = "UPDATE reforzamiento.tbrefuerzosprogramados " +
                 "SET idestadorefuerzoprogramado = :statusId " +
                 "WHERE idrefuerzoprogramado = :scheduledId";
         MapSqlParameterSource statusParams = new MapSqlParameterSource();
