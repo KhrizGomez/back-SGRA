@@ -77,5 +77,33 @@ public class CredentialRepositoryImpl implements ICredentialRepository {
             return new SpResponseDTO("Error interno al cambiar contraseña: " + e.getMessage(), false);
         }
     }
+
+    @Override
+    public SpResponseDTO recoverPassword(Integer userId, String newPassword) {
+        try {
+            StoredProcedureQuery query = entityManager
+                    .createStoredProcedureQuery("seguridad.sp_up_recuperar_contrasena");
+
+            query.registerStoredProcedureParameter("p_idusuario", Integer.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_nueva_contrasena", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
+            query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+
+            query.setParameter("p_idusuario", userId);
+            query.setParameter("p_nueva_contrasena", newPassword);
+            query.execute();
+
+            String mensaje = (String) query.getOutputParameterValue("p_mensaje");
+            Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
+
+            log.info("sp_up_recuperar_contrasena → userId={}, exito={}, mensaje={}", userId, exito, mensaje);
+
+            return new SpResponseDTO(mensaje, exito);
+
+        } catch (Exception e) {
+            log.error("Error al llamar sp_up_recuperar_contrasena para userId={}: {}", userId, e.getMessage(), e);
+            return new SpResponseDTO("Error interno al recuperar contraseña: " + e.getMessage(), false);
+        }
+    }
 }
 
