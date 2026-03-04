@@ -17,6 +17,10 @@ public class EmailSettingsRequestDTO {
     private Integer idusuario;
     private String pcorreoemisor;
     private String paplicacionsontrasena;
+    private String pservidorsmtp;
+    private Integer ppuertosmtp;
+    private Boolean pssl;
+    private String pnombreremitente;
     private LocalDateTime pfechahoracreacion;
     private String pestadop;
 }

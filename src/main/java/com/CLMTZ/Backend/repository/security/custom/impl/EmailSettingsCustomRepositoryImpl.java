@@ -35,9 +35,9 @@ public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRe
 
     @Override
     @Transactional
-    public SpResponseDTO createEmail(Integer userid, String email, String passwordApp){
+    public SpResponseDTO createEmail(Integer userid, String email, String passwordApp, String servidorSmtp, Integer puertoSmtp, Boolean ssl, String nombreRemitente){
 
-        String sql = "CALL seguridad.sp_in_configuracioncorreo(?, ?, ?, ?, ?)";
+        String sql = "CALL seguridad.sp_in_configuracioncorreo(?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
@@ -48,9 +48,13 @@ public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRe
                 cs.setInt(1, userid);
                 cs.setString(2, email);
                 cs.setString(3, passwordApp);
+                cs.setString(4, servidorSmtp);
+                cs.setInt(5, puertoSmtp);
+                cs.setBoolean(6, ssl);
+                cs.setString(7, nombreRemitente);
 
-                cs.registerOutParameter(4, Types.VARCHAR);
-                cs.registerOutParameter(5, Types.BOOLEAN);
+                cs.registerOutParameter(8, Types.VARCHAR);
+                cs.registerOutParameter(9, Types.BOOLEAN);
 
                 return cs;
             },
@@ -58,8 +62,8 @@ public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRe
 
                 cs.execute();
 
-                String message = cs.getString(4);
-                Boolean success = cs.getBoolean(5);
+                String message = cs.getString(8);
+                Boolean success = cs.getBoolean(9);
 
                 return new SpResponseDTO(message, success);
             }
