@@ -38,7 +38,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(HttpSession session) {
+    public ResponseEntity<?> getCurrentUser(HttpSession session, HttpServletRequest requestSer) {
         LoginResponseDTO user = authService.getCurrentUser(session);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -48,7 +48,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session) {
+    public ResponseEntity<?> logout(HttpSession session, HttpServletRequest requestSer) {
+        accessAuditSer.createLogoutAuditLogin(requestSer, authService.getCurrentUser(session).getUserId(), "Cierre sesión");
         authService.logout(session);
         return ResponseEntity.ok(Map.of("message", "Sesion cerrada correctamente"));
     }

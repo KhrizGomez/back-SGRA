@@ -63,9 +63,6 @@ public class User {
     @JoinColumn(name = "idgenero", foreignKey = @ForeignKey(name = "fk_usuario_genero"))
     private Gender idGender;
 
-    @Column(name = "direccion", length = 200, nullable = false)
-    private String address;
-
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private Access access;
 

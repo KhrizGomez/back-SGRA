@@ -24,15 +24,33 @@ public class AccessAuditService implements IAccessAuditService{
     @Override
     public void createAccessAuditLogin(HttpServletRequest request, String attemptedUser, String action){
 
-        String browser = request.getHeader("User-Agent");
-        browser = extractBrowser(browser);
+        try {
+            String browser = request.getHeader("User-Agent");
+            browser = extractBrowser(browser);
 
-        String ipAddress = request.getHeader("X-Forwarded-For");
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getRemoteAddr();
-        }
+            String ipAddress = request.getHeader("X-Forwarded-For");
+            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+                ipAddress = request.getRemoteAddr();
+            }
 
-        accessAuditRepo.createAccessAudit(attemptedUser, ipAddress, browser, action);
+            accessAuditRepo.createAccessAudit(attemptedUser, ipAddress, browser, action);
+        } catch (Exception e) { }
+    }
+
+    public void createLogoutAuditLogin(HttpServletRequest request, Integer userId, String action){
+
+        try {
+            String browser = request.getHeader("User-Agent");
+            browser = extractBrowser(browser);
+
+            String ipAddress = request.getHeader("X-Forwarded-For");
+            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+                ipAddress = request.getRemoteAddr();
+            }
+
+            accessAuditRepo.createLogoutAudit(userId, ipAddress, browser, action);
+        } catch (Exception e) { }
+
     }
 
     @Override

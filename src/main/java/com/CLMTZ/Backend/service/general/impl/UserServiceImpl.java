@@ -29,7 +29,7 @@ public class UserServiceImpl implements IUserService {
     public UserDTO save(UserDTO dto) {
         User e = new User();
         e.setFirstName(dto.getFirstName()); e.setLastName(dto.getLastName()); e.setIdentification(dto.getIdentification());
-        e.setPhoneNumber(dto.getPhoneNumber()); e.setEmail(dto.getEmail()); e.setAddress(dto.getAddress());
+        e.setPhoneNumber(dto.getPhoneNumber()); e.setEmail(dto.getEmail());
         if (dto.getInstitutionId() != null) e.setInstitutionId(institutionRepository.findById(dto.getInstitutionId()).orElseThrow(() -> new RuntimeException("Institution not found")));
         if (dto.getGenderId() != null) e.setIdGender(genderRepository.findById(dto.getGenderId()).orElseThrow(() -> new RuntimeException("Gender not found")));
         return toDTO(repository.save(e));
@@ -39,7 +39,7 @@ public class UserServiceImpl implements IUserService {
     public UserDTO update(Integer id, UserDTO dto) {
         User e = repository.findById(id).orElseThrow(() -> new RuntimeException("User not found with id: " + id));
         e.setFirstName(dto.getFirstName()); e.setLastName(dto.getLastName()); e.setIdentification(dto.getIdentification());
-        e.setPhoneNumber(dto.getPhoneNumber()); e.setEmail(dto.getEmail()); e.setAddress(dto.getAddress());
+        e.setPhoneNumber(dto.getPhoneNumber()); e.setEmail(dto.getEmail());
         if (dto.getInstitutionId() != null) e.setInstitutionId(institutionRepository.findById(dto.getInstitutionId()).orElseThrow(() -> new RuntimeException("Institution not found")));
         if (dto.getGenderId() != null) e.setIdGender(genderRepository.findById(dto.getGenderId()).orElseThrow(() -> new RuntimeException("Gender not found")));
         return toDTO(repository.save(e));
@@ -51,7 +51,7 @@ public class UserServiceImpl implements IUserService {
     private UserDTO toDTO(User e) {
         UserDTO d = new UserDTO();
         d.setUserId(e.getUserId()); d.setFirstName(e.getFirstName()); d.setLastName(e.getLastName());
-        d.setIdentification(e.getIdentification()); d.setPhoneNumber(e.getPhoneNumber()); d.setEmail(e.getEmail()); d.setAddress(e.getAddress());
+        d.setIdentification(e.getIdentification()); d.setPhoneNumber(e.getPhoneNumber()); d.setEmail(e.getEmail());
         d.setInstitutionId(e.getInstitutionId() != null ? e.getInstitutionId().getInstitutionId() : null);
         d.setGenderId(e.getIdGender() != null ? e.getIdGender().getGenderId() : null);
         return d;
