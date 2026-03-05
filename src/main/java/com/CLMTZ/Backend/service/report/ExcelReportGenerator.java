@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class ExcelReportGenerator {
@@ -411,6 +412,132 @@ public class ExcelReportGenerator {
     }
 
     private String nz(String v) { return v != null ? v : ""; }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    //  TABLA SIMPLE — replica la vista previa del frontend
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Genera un archivo Excel de una sola hoja con los mismos datos y columnas
+     * que aparecen en la vista previa del frontend.
+     *
+     * @param rows      filas de datos (mapa clave→valor)
+     * @param keys      claves de las columnas visibles (en orden)
+     * @param headers   etiquetas de las columnas (mismo orden que keys)
+     * @param title     título del reporte
+     * @param periodName nombre del período activo
+     */
+    public byte[] generateSimpleTable(List<java.util.Map<String, Object>> rows,
+                                      List<String> keys,
+                                      List<String> headers,
+                                      String title,
+                                      String periodName) throws IOException {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            SimpleStyles ss = new SimpleStyles(wb);
+            XSSFSheet sheet = wb.createSheet(title.length() > 31 ? title.substring(0, 31) : title);
+            int ri = 0;
+
+            // ── Fila de título ──────────────────────────────────────────────
+            Row titleRow = sheet.createRow(ri++);
+            titleRow.setHeightInPoints(28);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue(title + " — " + periodName);
+            titleCell.setCellStyle(ss.title);
+            if (headers.size() > 1) {
+                sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, headers.size() - 1));
+            }
+
+            // ── Fila de encabezados ─────────────────────────────────────────
+            Row headerRow = sheet.createRow(ri++);
+            headerRow.setHeightInPoints(20);
+            for (int i = 0; i < headers.size(); i++) {
+                Cell c = headerRow.createCell(i);
+                c.setCellValue(headers.get(i));
+                c.setCellStyle(ss.header);
+            }
+
+            // ── Filas de datos ──────────────────────────────────────────────
+            for (java.util.Map<String, Object> row : rows) {
+                Row dataRow = sheet.createRow(ri);
+                CellStyle cs = (ri % 2 == 0) ? ss.rowAlt : ss.rowPlain;
+                for (int i = 0; i < keys.size(); i++) {
+                    Object val = row.get(keys.get(i));
+                    Cell c = dataRow.createCell(i);
+                    if (val instanceof Number) {
+                        c.setCellValue(((Number) val).doubleValue());
+                    } else {
+                        c.setCellValue(val != null ? val.toString() : "");
+                    }
+                    c.setCellStyle(cs);
+                }
+                ri++;
+            }
+
+            autoSize(sheet, headers.size());
+            return toBytes(wb);
+        }
+    }
+
+    /** Estilos en verde (#1B7505) para coincidir con el PDF del frontend. */
+    private static final class SimpleStyles {
+        final CellStyle title;
+        final CellStyle header;
+        final CellStyle rowPlain;
+        final CellStyle rowAlt;
+
+        SimpleStyles(XSSFWorkbook wb) {
+            title    = buildTitle(wb);
+            header   = buildHeader(wb);
+            rowPlain = buildRow(wb, false);
+            rowAlt   = buildRow(wb, true);
+        }
+
+        private static CellStyle buildTitle(XSSFWorkbook wb) {
+            XSSFCellStyle s = wb.createCellStyle();
+            XSSFFont f = wb.createFont();
+            f.setBold(true);
+            f.setFontHeightInPoints((short) 14);
+            f.setColor(new XSSFColor(new byte[]{(byte)255,(byte)255,(byte)255}, null));
+            s.setFont(f);
+            s.setFillForegroundColor(new XSSFColor(new byte[]{(byte)27,(byte)117,(byte)5}, null));
+            s.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            s.setAlignment(HorizontalAlignment.CENTER);
+            s.setVerticalAlignment(VerticalAlignment.CENTER);
+            return s;
+        }
+
+        private static CellStyle buildHeader(XSSFWorkbook wb) {
+            XSSFCellStyle s = wb.createCellStyle();
+            XSSFFont f = wb.createFont();
+            f.setBold(true);
+            f.setColor(new XSSFColor(new byte[]{(byte)255,(byte)255,(byte)255}, null));
+            s.setFont(f);
+            s.setFillForegroundColor(new XSSFColor(new byte[]{(byte)27,(byte)117,(byte)5}, null));
+            s.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            s.setAlignment(HorizontalAlignment.CENTER);
+            s.setVerticalAlignment(VerticalAlignment.CENTER);
+            addBordersXssf(s);
+            return s;
+        }
+
+        private static CellStyle buildRow(XSSFWorkbook wb, boolean alt) {
+            XSSFCellStyle s = wb.createCellStyle();
+            if (alt) {
+                s.setFillForegroundColor(new XSSFColor(new byte[]{(byte)245,(byte)250,(byte)245}, null));
+                s.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            }
+            addBordersXssf(s);
+            return s;
+        }
+
+        private static void addBordersXssf(XSSFCellStyle s) {
+            s.setBorderBottom(BorderStyle.THIN);
+            s.setBorderTop(BorderStyle.THIN);
+            s.setBorderLeft(BorderStyle.THIN);
+            s.setBorderRight(BorderStyle.THIN);
+        }
+    }
+
 
     // ──────────────────────────────────────────────────────────────────────────
     //  ESTILOS (creados una sola vez por workbook)
