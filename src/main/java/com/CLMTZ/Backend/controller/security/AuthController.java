@@ -2,6 +2,7 @@ package com.CLMTZ.Backend.controller.security;
 
 import com.CLMTZ.Backend.dto.security.Request.ChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.LoginRequestDTO;
+import com.CLMTZ.Backend.dto.security.Request.VoluntaryChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.LoginResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.service.security.IAccessAuditService;
@@ -55,6 +56,23 @@ public class AuthController {
     @PostMapping("/change-password")
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequestDTO request, HttpSession session) {
         SpResponseDTO result = authService.changePassword(request, session);
+        if (Boolean.TRUE.equals(result.getSuccess())) {
+            return ResponseEntity.ok(Map.of(
+                    "message", result.getMessage(),
+                    "success", true
+            ));
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "error", result.getMessage(),
+                            "success", false
+                    ));
+        }
+    }
+
+    @PostMapping("/voluntary-change-password")
+    public ResponseEntity<?> voluntaryChangePassword(@RequestBody VoluntaryChangePasswordRequestDTO request, HttpSession session) {
+        SpResponseDTO result = authService.voluntaryChangePassword(request, session);
         if (Boolean.TRUE.equals(result.getSuccess())) {
             return ResponseEntity.ok(Map.of(
                     "message", result.getMessage(),
