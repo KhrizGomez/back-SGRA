@@ -20,5 +20,11 @@ public interface ICredentialRepository {
      * de un usuario existente (estado='A').
      */
     SpResponseDTO recoverPassword(Integer userId, String newPassword);
+
+    /**
+     * Llama a seguridad.sp_up_cambiar_contrasena para cambio voluntario de contraseña.
+     * Requiere la contraseña actual para verificación.
+     */
+    SpResponseDTO voluntaryPasswordChange(Integer userId, String currentPassword, String newPassword);
 }
 

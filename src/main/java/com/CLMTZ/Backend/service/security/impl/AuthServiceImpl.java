@@ -4,6 +4,7 @@ import com.CLMTZ.Backend.config.UserConnectionPool;
 import com.CLMTZ.Backend.dto.security.Request.ChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.LoginRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.ServerCredentialRequestDTO;
+import com.CLMTZ.Backend.dto.security.Request.VoluntaryChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.LoginResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
@@ -242,6 +243,66 @@ public class AuthServiceImpl implements IAuthService {
             session.invalidate();
         } else {
             log.warn("Error en cambio de contraseña para usuario: {}. Mensaje: {}",
+                    ctx.getUsername(), result.getMessage());
+        }
+
+        return result;
+    }
+
+    @Override
+    public SpResponseDTO voluntaryChangePassword(VoluntaryChangePasswordRequestDTO request, HttpSession session) {
+        // 1. Verificar sesión activa
+        UserContext ctx = getUserContext(session);
+        if (ctx == null) {
+            return new SpResponseDTO("No hay sesión activa.", false);
+        }
+
+        // 2. Verificar que el usuario esté en estado 'A' (Activo)
+        if (ctx.getAccountState() == null || !ctx.getAccountState().equals('A')) {
+            return new SpResponseDTO("Esta acción solo está disponible para usuarios activos.", false);
+        }
+
+        // 3. Validar que los campos no estén vacíos
+        if (request.getCurrentPassword() == null || request.getCurrentPassword().trim().isEmpty()) {
+            return new SpResponseDTO("La contraseña actual no puede estar vacía.", false);
+        }
+
+        if (request.getNewPassword() == null || request.getNewPassword().trim().isEmpty()) {
+            return new SpResponseDTO("La nueva contraseña no puede estar vacía.", false);
+        }
+
+        if (request.getConfirmPassword() == null || request.getConfirmPassword().trim().isEmpty()) {
+            return new SpResponseDTO("La confirmación de contraseña no puede estar vacía.", false);
+        }
+
+        // 4. Validar que coincidan
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            return new SpResponseDTO("Las contraseñas no coinciden.", false);
+        }
+
+        // 5. Validar complejidad mínima (al menos 8 caracteres, 1 mayúscula, 1 número)
+        String password = request.getNewPassword();
+        if (password.length() < 8) {
+            return new SpResponseDTO("La contraseña debe tener al menos 8 caracteres.", false);
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            return new SpResponseDTO("La contraseña debe contener al menos una letra mayúscula.", false);
+        }
+        if (!password.matches(".*[0-9].*")) {
+            return new SpResponseDTO("La contraseña debe contener al menos un número.", false);
+        }
+
+        // 6. Llamar al SP de cambio voluntario de contraseña
+        log.info("Procesando cambio voluntario de contraseña para usuario: {} (userId={})",
+                ctx.getUsername(), ctx.getUserId());
+
+        SpResponseDTO result = credentialRepository.voluntaryPasswordChange(
+                ctx.getUserId(), request.getCurrentPassword(), password);
+
+        if (Boolean.TRUE.equals(result.getSuccess())) {
+            log.info("Cambio voluntario de contraseña exitoso para usuario: {}", ctx.getUsername());
+        } else {
+            log.warn("Error en cambio voluntario de contraseña para usuario: {}. Mensaje: {}",
                     ctx.getUsername(), result.getMessage());
         }
 
