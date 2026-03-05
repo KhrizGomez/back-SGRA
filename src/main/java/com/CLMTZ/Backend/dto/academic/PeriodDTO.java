@@ -10,10 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PeriodDTO {
-    private Integer periodId;
-    private String period;
-    private LocalDate startDate;
-    private LocalDate endDate;
-    private Boolean state;
-
+    private Integer idperiodo;
+    private String periodo;
+    private LocalDate fechainicio;
+    private LocalDate fechafin;
+    private Boolean estado;
 }

@@ -15,7 +15,7 @@ public class PeriodController {
 
     private final IPeriodService service;
 
-    @GetMapping
+    @GetMapping("/list-periods")
     public ResponseEntity<List<PeriodDTO>> findAll() { return ResponseEntity.ok(service.findAll()); }
 
     @GetMapping("/{id}")

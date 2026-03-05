@@ -3,6 +3,8 @@ package com.CLMTZ.Backend.service.academic.impl;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.CLMTZ.Backend.dto.academic.PeriodDTO;
 import com.CLMTZ.Backend.dto.academic.PeriodLoadDTO;
 import com.CLMTZ.Backend.model.academic.Period;
@@ -17,6 +19,7 @@ public class PeriodServiceImpl implements IPeriodService {
     private final IPeriodRepository repository;
 
     @Override
+    @Transactional(readOnly = true)
     public List<PeriodDTO> findAll() {
         return repository.findAll().stream().map(this::toDTO).collect(Collectors.toList());
     }
@@ -30,20 +33,20 @@ public class PeriodServiceImpl implements IPeriodService {
     @Override
     public PeriodDTO save(PeriodDTO dto) {
         Period entity = new Period();
-        entity.setPeriod(dto.getPeriod());
-        entity.setStartDate(dto.getStartDate());
-        entity.setEndDate(dto.getEndDate());
-        entity.setState(dto.getState() != null ? dto.getState() : true);
+        entity.setPeriod(dto.getPeriodo());
+        entity.setStartDate(dto.getFechainicio());
+        entity.setEndDate(dto.getFechafin());
+        entity.setState(dto.getEstado() != null ? dto.getEstado() : true);
         return toDTO(repository.save(entity));
     }
 
     @Override
     public PeriodDTO update(Integer id, PeriodDTO dto) {
         Period entity = repository.findById(id).orElseThrow(() -> new RuntimeException("Period not found with id: " + id));
-        entity.setPeriod(dto.getPeriod());
-        entity.setStartDate(dto.getStartDate());
-        entity.setEndDate(dto.getEndDate());
-        entity.setState(dto.getState());
+        entity.setPeriod(dto.getPeriodo());
+        entity.setStartDate(dto.getFechainicio());
+        entity.setEndDate(dto.getFechafin());
+        entity.setState(dto.getEstado());
         return toDTO(repository.save(entity));
     }
 
@@ -52,11 +55,11 @@ public class PeriodServiceImpl implements IPeriodService {
 
     private PeriodDTO toDTO(Period e) {
         PeriodDTO dto = new PeriodDTO();
-        dto.setPeriodId(e.getPeriodId());
-        dto.setPeriod(e.getPeriod());
-        dto.setStartDate(e.getStartDate());
-        dto.setEndDate(e.getEndDate());
-        dto.setState(e.getState());
+        dto.setIdperiodo(e.getPeriodId());
+        dto.setPeriodo(e.getPeriod());
+        dto.setFechainicio(e.getStartDate());
+        dto.setFechafin(e.getEndDate());
+        dto.setEstado(e.getState());
         return dto;
     }
 
