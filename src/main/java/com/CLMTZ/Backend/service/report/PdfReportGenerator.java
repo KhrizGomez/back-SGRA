@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class PdfReportGenerator {
@@ -232,4 +234,97 @@ public class PdfReportGenerator {
     private String nullSafe(String value) {
         return value != null ? value : "";
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    //  TABLA SIMPLE — replica la vista previa del frontend
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private static final Font   PDF_TITLE_FONT  = new Font(Font.HELVETICA, 18, Font.BOLD, new Color(27, 117, 5));
+    private static final Font   PDF_DATE_FONT   = new Font(Font.HELVETICA, 10, Font.NORMAL, new Color(108, 117, 125));
+    private static final Font   PDF_HDR_FONT    = new Font(Font.HELVETICA, 10, Font.BOLD, Color.WHITE);
+    private static final Font   PDF_CELL_FONT   = new Font(Font.HELVETICA, 10, Font.NORMAL, Color.BLACK);
+    private static final Color  PDF_HDR_BG      = new Color(27, 117, 5);
+    private static final Color  PDF_ALT_BG      = new Color(245, 250, 245);
+
+    /**
+     * Genera un PDF de una sola tabla con el mismo diseño que el frontend produce
+     * con jsPDF + autoTable (colores verdes, sin gráficos).
+     */
+    public byte[] generateSimpleTable(List<java.util.Map<String, Object>> rows,
+                                      List<String> keys,
+                                      List<String> headers,
+                                      String title,
+                                      String periodName) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4.rotate(), 28, 28, 36, 28);
+        PdfWriter.getInstance(document, out);
+        document.open();
+
+        // ── Título ───────────────────────────────────────────────────────────
+        Paragraph titlePar = new Paragraph("Reporte – " + title, PDF_TITLE_FONT);
+        titlePar.setSpacingAfter(4);
+        document.add(titlePar);
+
+        // ── Subtítulo: fecha y período ────────────────────────────────────────
+        java.time.LocalDate today = java.time.LocalDate.now();
+        String dateStr = String.format("%02d/%02d/%04d",
+                today.getDayOfMonth(), today.getMonthValue(), today.getYear());
+        Paragraph datePar = new Paragraph("Generado el " + dateStr + "   |   Período: " + periodName, PDF_DATE_FONT);
+        datePar.setSpacingAfter(8);
+        document.add(datePar);
+
+        // ── Línea separadora en verde (tabla auxiliar de 1 celda) ─────────────
+        PdfPTable separator = new PdfPTable(1);
+        separator.setWidthPercentage(100);
+        separator.setSpacingAfter(10);
+        PdfPCell sepCell = new PdfPCell(new Phrase(""));
+        sepCell.setBorderColorBottom(PDF_HDR_BG);
+        sepCell.setBorderWidthBottom(1.5f);
+        sepCell.setBorderWidthTop(0);
+        sepCell.setBorderWidthLeft(0);
+        sepCell.setBorderWidthRight(0);
+        sepCell.setPaddingBottom(0);
+        separator.addCell(sepCell);
+        document.add(separator);
+
+        // ── Tabla de datos ────────────────────────────────────────────────────
+        if (rows == null || rows.isEmpty()) {
+            document.add(new Paragraph("No se encontraron registros.", PDF_CELL_FONT));
+        } else {
+            // Widths iguales para todas las columnas
+            float[] widths = new float[headers.size()];
+            java.util.Arrays.fill(widths, 1f);
+            PdfPTable table = new PdfPTable(widths);
+            table.setWidthPercentage(100);
+
+            // Encabezados
+            for (String header : headers) {
+                PdfPCell cell = new PdfPCell(new Phrase(header, PDF_HDR_FONT));
+                cell.setBackgroundColor(PDF_HDR_BG);
+                cell.setPadding(5);
+                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                table.addCell(cell);
+            }
+
+            // Datos
+            boolean alt = false;
+            for (java.util.Map<String, Object> row : rows) {
+                for (String key : keys) {
+                    Object val = row.get(key);
+                    String text = val != null ? val.toString() : "";
+                    PdfPCell cell = new PdfPCell(new Phrase(text, PDF_CELL_FONT));
+                    cell.setPadding(4);
+                    if (alt) cell.setBackgroundColor(PDF_ALT_BG);
+                    table.addCell(cell);
+                }
+                alt = !alt;
+            }
+            document.add(table);
+        }
+
+        document.close();
+        return out.toByteArray();
+    }
 }
+
