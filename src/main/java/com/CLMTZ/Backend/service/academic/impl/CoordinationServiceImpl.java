@@ -106,9 +106,9 @@ public class CoordinationServiceImpl implements ICoordinationService {
                     try {
                         Optional<User> userOpt = userRepository.findByIdentification(fila.getIdentificacion());
                         if (userOpt.isPresent()) {
-                            // idrol = 4 → Estudiante
+                            // rol → Estudiante (por nombre, no por ID)
                             SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
-                                    userOpt.get().getUserId(), 4);
+                                    userOpt.get().getUserId(), "Estudiante");
                             if (Boolean.TRUE.equals(credResult.getSuccess())) {
                                 log.info("Credenciales creadas para estudiante '{}': {}",
                                         nombreCompleto, credResult.getMessage());
@@ -175,9 +175,9 @@ public class CoordinationServiceImpl implements ICoordinationService {
                                 fila.getNombres(), fila.getApellidos());
                         if (userOpt.isPresent()) {
                             User docente = userOpt.get();
-                            // idrol = 3 → Docente
+                            // rol → Docente (por nombre, no por ID)
                             SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
-                                    docente.getUserId(), 3);
+                                    docente.getUserId(), "Docente");
                             if (Boolean.TRUE.equals(credResult.getSuccess())) {
                                 log.info("Credenciales creadas para docente '{}': {}",
                                         nombreRef, credResult.getMessage());

@@ -5,9 +5,11 @@ import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 public interface ICredentialRepository {
 
     /**
-     * Llama a seguridad.sp_in_credenciales_nuevo_usuario para crear credenciales
+     * Llama a seguridad.sp_in_credenciales_nuevo_usuario para crear credenciales.
+     * @param userId   ID del usuario
+     * @param roleName Nombre del rol (ej: "Estudiante", "Docente", "Coordinador")
      */
-    SpResponseDTO createNewUserCredentials(Integer userId, Integer roleId);
+    SpResponseDTO createNewUserCredentials(Integer userId, String roleName);
 
     /**
      * Llama a seguridad.sp_up_primer_cambio_contrasena para procesar el primer
