@@ -20,27 +20,27 @@ public class CredentialRepositoryImpl implements ICredentialRepository {
     private EntityManager entityManager;
 
     @Override
-    public SpResponseDTO createNewUserCredentials(Integer userId, Integer roleId) {
+    public SpResponseDTO createNewUserCredentials(Integer userId, String roleName) {
         try {
             StoredProcedureQuery query = entityManager
                     .createStoredProcedureQuery("seguridad.sp_in_credenciales_nuevo_usuario");
 
             query.registerStoredProcedureParameter("p_idusuario", Integer.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_idrol", Integer.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_nombre_rol", String.class, ParameterMode.IN);
             query.registerStoredProcedureParameter("p_nombreusuario", String.class, ParameterMode.OUT);
             query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
             query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
 
             query.setParameter("p_idusuario", userId);
-            query.setParameter("p_idrol", roleId);
+            query.setParameter("p_nombre_rol", roleName);
             query.execute();
 
             String username = (String) query.getOutputParameterValue("p_nombreusuario");
             String mensaje = (String) query.getOutputParameterValue("p_mensaje");
             Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
 
-            log.info("sp_in_credenciales_nuevo_usuario → userId={}, roleId={}, username={}, exito={}, mensaje={}",
-                    userId, roleId, username, exito, mensaje);
+            log.info("sp_in_credenciales_nuevo_usuario → userId={}, roleName={}, username={}, exito={}, mensaje={}",
+                    userId, roleName, username, exito, mensaje);
 
             return new SpResponseDTO(mensaje, exito);
 
