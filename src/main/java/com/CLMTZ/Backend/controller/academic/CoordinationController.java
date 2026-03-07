@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.controller.academic;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -66,15 +67,40 @@ public class CoordinationController {
 
         if (ExcelHelper.hasExcelFormat(file)) {
             try {
-                List<StudentLoadDTO> dtos = ExcelHelper.excelToStudents(file.getInputStream(), carreraTexto, modalidadTexto);
-                System.out.println("[UPLOAD-STUDENTS] Filas leídas: " + dtos.size());
-                List<String> reporte = service.uploadStudents(dtos);
-                boolean tieneErrores = reporte.stream().anyMatch(r ->
+                // Leer el archivo en bytes para poder reutilizarlo varias veces
+                byte[] fileContent = file.getBytes();
+                List<String> reporteTotal = new ArrayList<>();
+                
+                // Tamaño de lote (cantidad de registros a procesar de una sola vez)
+                final int BATCH_SIZE = 20;
+                
+                // Contar total de registros
+                java.io.InputStream isCount = new java.io.ByteArrayInputStream(fileContent);
+                int totalRows = ExcelHelper.countStudentRows(isCount, carreraTexto, modalidadTexto);
+                System.out.println("[UPLOAD-STUDENTS] Total de filas de estudiantes en Excel: " + totalRows);
+                
+                // Procesar en lotes
+                for (int offset = 0; offset < totalRows; offset += BATCH_SIZE) {
+                    java.io.InputStream isBatch = new java.io.ByteArrayInputStream(fileContent);
+                    List<StudentLoadDTO> batch = ExcelHelper.excelToStudentsBatch(isBatch, offset, BATCH_SIZE, carreraTexto, modalidadTexto);
+                    
+                    if (batch.isEmpty()) break;
+                    
+                    // DEDUPLICAR por identificación dentro del lote
+                    batch = deduplicateStudents(batch);
+                    
+                    System.out.println("[UPLOAD-STUDENTS] Procesando lote: offset=" + offset + ", cantidad=" + batch.size());
+                    
+                    List<String> reporteLote = service.uploadStudents(batch);
+                    reporteTotal.addAll(reporteLote);
+                }
+                
+                boolean tieneErrores = reporteTotal.stream().anyMatch(r ->
                         r.contains(": ERROR") || r.startsWith("ADVERTENCIA") || r.startsWith("ERROR GENERAL"));
                 if (tieneErrores) {
-                    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(reporte);
+                    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(reporteTotal);
                 }
-                return ResponseEntity.ok(reporte);
+                return ResponseEntity.ok(reporteTotal);
             } catch (Exception e) {
                 e.printStackTrace();
                 return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED)
@@ -117,15 +143,40 @@ public class CoordinationController {
 
         if (ExcelHelper.hasExcelFormat(file)) {
             try {
-                List<TeachingDTO> dtos = ExcelHelper.excelToTeaching(file.getInputStream());
-                System.out.println("Filas leídas del Excel: " + dtos.size());
-                List<String> reporte = service.uploadTeachers(dtos);
-                boolean tieneErrores = reporte.stream().anyMatch(r ->
+                // Leer el archivo en bytes para poder reutilizarlo varias veces
+                byte[] fileContent = file.getBytes();
+                List<String> reporteTotal = new ArrayList<>();
+                
+                // Tamaño de lote (cantidad de registros a procesar de una sola vez)
+                final int BATCH_SIZE = 20;
+                
+                // Contar total de registros
+                java.io.InputStream isCount = new java.io.ByteArrayInputStream(fileContent);
+                int totalRows = ExcelHelper.countTeachingRows(isCount);
+                System.out.println("Total de filas de docentes en Excel: " + totalRows);
+                
+                // Procesar en lotes
+                for (int offset = 0; offset < totalRows; offset += BATCH_SIZE) {
+                    java.io.InputStream isBatch = new java.io.ByteArrayInputStream(fileContent);
+                    List<TeachingDTO> batch = ExcelHelper.excelToTeachingBatch(isBatch, offset, BATCH_SIZE);
+                    
+                    if (batch.isEmpty()) break;
+                    
+                    // DEDUPLICAR por nombres + apellidos dentro del lote
+                    batch = deduplicateTeachers(batch);
+                    
+                    System.out.println("Procesando lote: offset=" + offset + ", cantidad=" + batch.size());
+                    
+                    List<String> reporteLote = service.uploadTeachers(batch);
+                    reporteTotal.addAll(reporteLote);
+                }
+                
+                boolean tieneErrores = reporteTotal.stream().anyMatch(r ->
                         r.contains(": ERROR") || r.startsWith("ADVERTENCIA") || r.startsWith("ERROR GENERAL"));
                 if (tieneErrores) {
-                    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(reporte);
+                    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(reporteTotal);
                 }
-                return ResponseEntity.ok(reporte);
+                return ResponseEntity.ok(reporteTotal);
             } catch (Exception e) {
                 e.printStackTrace();
                 return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body("Error: " + e.getMessage());
@@ -195,6 +246,72 @@ public class CoordinationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(List.of("Error al procesar el archivo de horarios: " + e.getMessage()));
         }
+    }
+
+    // =====================================================================
+    // MÉTODOS HELPER: DEDUPLICACIÓN
+    // =====================================================================
+    
+    /**
+     * Deduplica docentes por nombres + apellidos dentro de un lote.
+     * Si hay duplicados, mantiene el primero y descarta los siguientes.
+     * Esto previene errores de unique constraint cuando el mismo docente
+     * aparece múltiples veces en el Excel con diferentes asignaturas/paralelos.
+     */
+    private List<TeachingDTO> deduplicateTeachers(List<TeachingDTO> batch) {
+        java.util.LinkedHashMap<String, TeachingDTO> deduped = new java.util.LinkedHashMap<>();
+        
+        for (TeachingDTO teacher : batch) {
+            // Crear clave única: nombres + apellidos (en mayúsculas)
+            String key = (teacher.getNombres() + "|" + teacher.getApellidos()).toUpperCase().trim();
+            
+            if (!deduped.containsKey(key)) {
+                // Primer registro con estos nombres/apellidos
+                deduped.put(key, teacher);
+            }
+            // Si ya existe, lo ignoramos (mantiene el primero)
+        }
+        
+        // Convertir de vuelta a lista
+        List<TeachingDTO> result = new ArrayList<>(deduped.values());
+        
+        int duplicados = batch.size() - result.size();
+        if (duplicados > 0) {
+            System.out.println("[DEDUP-TEACHERS] Se removieron " + duplicados + " docentes duplicados en el lote.");
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Deduplica estudiantes por identificación dentro de un lote.
+     * Si hay duplicados, mantiene el primero y descarta los siguientes.
+     * Esto previene errores de unique constraint cuando el mismo estudiante
+     * aparece múltiples veces en el Excel.
+     */
+    private List<StudentLoadDTO> deduplicateStudents(List<StudentLoadDTO> batch) {
+        java.util.LinkedHashMap<String, StudentLoadDTO> deduped = new java.util.LinkedHashMap<>();
+        
+        for (StudentLoadDTO student : batch) {
+            // Crear clave única: identificación (cédula, pasaporte, etc)
+            String key = student.getIdentificacion().toUpperCase().trim();
+            
+            if (!deduped.containsKey(key)) {
+                // Primer registro con esta identificación
+                deduped.put(key, student);
+            }
+            // Si ya existe, lo ignoramos (mantiene el primero)
+        }
+        
+        // Convertir de vuelta a lista
+        List<StudentLoadDTO> result = new ArrayList<>(deduped.values());
+        
+        int duplicados = batch.size() - result.size();
+        if (duplicados > 0) {
+            System.out.println("[DEDUP-STUDENTS] Se removieron " + duplicados + " estudiantes duplicados en el lote.");
+        }
+        
+        return result;
     }
 
     // =====================================================================

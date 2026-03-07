@@ -100,7 +100,8 @@ public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
 
         long exitosos = report.stream().filter(r -> r.startsWith("Asignatura:")).count();
         long errores = report.size() - exitosos;
-        report.add(0, "RESUMEN: " + registrationDTOs.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores/advertencias.");
+        // Línea de resumen comentada por solicitud del usuario
+        // report.add(0, "RESUMEN: " + registrationDTOs.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores/advertencias.");
 
         return report;
     }
