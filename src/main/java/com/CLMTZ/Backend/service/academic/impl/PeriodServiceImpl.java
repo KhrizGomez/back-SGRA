@@ -5,10 +5,13 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.CLMTZ.Backend.dto.academic.PeriodCUDDTO;
 import com.CLMTZ.Backend.dto.academic.PeriodDTO;
 import com.CLMTZ.Backend.dto.academic.PeriodLoadDTO;
+import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.model.academic.Period;
 import com.CLMTZ.Backend.repository.academic.IPeriodRepository;
+import com.CLMTZ.Backend.repository.academic.custom.IPeriodCustomRepository;
 import com.CLMTZ.Backend.service.academic.IPeriodService;
 import lombok.RequiredArgsConstructor;
 
@@ -17,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class PeriodServiceImpl implements IPeriodService {
 
     private final IPeriodRepository repository;
+    private final IPeriodCustomRepository periodCustomRepo;
 
     @Override
     @Transactional(readOnly = true)
@@ -73,5 +77,13 @@ public class PeriodServiceImpl implements IPeriodService {
         throw new UnsupportedOperationException("Unimplemented method 'uploadPeriods'");
     }
 
-    
+    @Override
+    @Transactional
+    public SpResponseDTO createPeriod (PeriodCUDDTO periodCUD){
+        try {
+            return periodCustomRepo.createPeriod(periodCUD);
+        } catch (Exception e) {
+            return new SpResponseDTO("Error inesperado al crear el periodo académico", false);
+        }
+    }   
 }
