@@ -18,8 +18,8 @@ public class WorkAreaController {
     private final IWorkAreaService workAreaSer;
 
     @GetMapping("/list-workAreas")
-    public ResponseEntity<List<WorkAreaResponseDTO>> listWorkAreas(@RequestParam Integer userId, @RequestParam Integer workAreaTypeId){
-        List<WorkAreaResponseDTO> requestListAreas = workAreaSer.listWorkAreas(userId,workAreaTypeId);
+    public ResponseEntity<List<WorkAreaResponseDTO>> listWorkAreas(@RequestParam Integer userId, @RequestParam Integer workAreaTypeId, @RequestParam Integer reinforcementId){
+        List<WorkAreaResponseDTO> requestListAreas = workAreaSer.listWorkAreas(userId,workAreaTypeId,reinforcementId);
         return ResponseEntity.ok(requestListAreas);
     }
 

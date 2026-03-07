@@ -52,4 +52,36 @@ public class PeriodCustomRepositoryImpl implements IPeriodCustomRepository{
             }
         );
     }
+
+    @Override
+    public SpResponseDTO updatePeriod(PeriodCUDDTO periodCUD){
+        String query = "Call academico.sp_up_periodoacademico(?, ?, ?, ?, ?, ?, ?)";
+        
+        JdbcTemplate jdbcTemplate = dynamicDataSourceSer.getJdbcTemplate().getJdbcTemplate();
+
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(query);
+
+                cs.setInt(1, periodCUD.getPeriodId());
+                cs.setString(2, periodCUD.getPeriod());
+                cs.setString(3, periodCUD.getStartDate());
+                cs.setString(4, periodCUD.getEndDate());
+                cs.setBoolean(5, periodCUD.getState());
+
+                cs.registerOutParameter(4, Types.VARCHAR);
+                cs.registerOutParameter(5, Types.BOOLEAN);
+                
+                return cs;
+            },
+            (CallableStatement cs) -> {
+                cs.execute();
+                
+                String message = cs.getString(4);
+                Boolean success = cs.getBoolean(5);
+                
+                return new SpResponseDTO(message, success);
+            }
+        );
+    }
 }

@@ -4,7 +4,6 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.Types;
 import java.util.List;
-import java.util.concurrent.Callable;
 
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -28,12 +27,13 @@ public class WorkAreaCustomRepositoryImpl  implements IWorkAreaCustomRepository{
 
     @Override
     @Transactional(readOnly = true)
-    public List<WorkAreaResponseDTO> listWorkAreas(Integer userId, Integer workAreaTypeId){
-        String query = "select * from reforzamiento.fn_sl_refuerzo_areas_trabajo(:p_idusuario, :p_idtipoareatrabajo)";
+    public List<WorkAreaResponseDTO> listWorkAreas(Integer userId, Integer workAreaTypeId, Integer reinforcementId){
+        String query = "select * from reforzamiento.fn_sl_refuerzo_areas_trabajo(:p_idusuario, :p_idtipoareatrabajo, :p_refuerzoprogramado)";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("p_idusuario", userId)
-                .addValue("p_idtipoareatrabajo", workAreaTypeId);
+                .addValue("p_idtipoareatrabajo", workAreaTypeId)
+                .addValue("p_refuerzoprogramado", reinforcementId);
 
         return dynamicDataSourceService.getJdbcTemplate().query(query, params, new BeanPropertyRowMapper<>(WorkAreaResponseDTO.class));
     }

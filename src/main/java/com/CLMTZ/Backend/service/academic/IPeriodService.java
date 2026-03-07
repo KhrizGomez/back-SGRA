@@ -16,4 +16,5 @@ public interface IPeriodService {
     List<String> Period(List<PeriodDTO> dtos);
     List<String> uploadPeriods(List<PeriodLoadDTO> periodDTOs);
     SpResponseDTO createPeriod (PeriodCUDDTO periodCUD);
+    SpResponseDTO updatePeriod(PeriodCUDDTO periodCUD);
 }

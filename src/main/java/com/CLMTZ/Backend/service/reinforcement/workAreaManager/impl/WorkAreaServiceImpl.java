@@ -20,9 +20,9 @@ public class WorkAreaServiceImpl implements IWorkAreaService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<WorkAreaResponseDTO> listWorkAreas(Integer userId, Integer workAreaTypeId){
+    public List<WorkAreaResponseDTO> listWorkAreas(Integer userId, Integer workAreaTypeId, Integer ReinforcementId){
         try {
-            return workAreaCustomRepo.listWorkAreas(userId, workAreaTypeId);
+            return workAreaCustomRepo.listWorkAreas(userId, workAreaTypeId,ReinforcementId);
         } catch (Exception e) {
             throw new RuntimeException("Error al listar las areas de trabajo: " + e.getMessage());
         }

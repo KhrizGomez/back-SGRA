@@ -10,7 +10,7 @@ import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 
 @Repository
 public interface IWorkAreaCustomRepository {
-    List<WorkAreaResponseDTO> listWorkAreas(Integer userId, Integer workAreaTypeId);
+    List<WorkAreaResponseDTO> listWorkAreas(Integer userId, Integer workAreaTypeId, Integer ReinforcementId);
 
     SpResponseDTO AssignWorkAreaReinforcement (AssignWorkAreaReinforcementDTO assignWorkAreaReinforcement);
 }
