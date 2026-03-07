@@ -2,8 +2,10 @@ package com.CLMTZ.Backend.service.academic;
 
 import java.util.List;
 
+import com.CLMTZ.Backend.dto.academic.PeriodCUDDTO;
 import com.CLMTZ.Backend.dto.academic.PeriodDTO;
 import com.CLMTZ.Backend.dto.academic.PeriodLoadDTO;
+import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 
 public interface IPeriodService {
     List<PeriodDTO> findAll();
@@ -13,4 +15,6 @@ public interface IPeriodService {
     void deleteById(Integer id);
     List<String> Period(List<PeriodDTO> dtos);
     List<String> uploadPeriods(List<PeriodLoadDTO> periodDTOs);
+    SpResponseDTO createPeriod (PeriodCUDDTO periodCUD);
+    SpResponseDTO updatePeriod(PeriodCUDDTO periodCUD);
 }
