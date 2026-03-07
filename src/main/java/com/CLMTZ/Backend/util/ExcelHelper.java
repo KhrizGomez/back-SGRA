@@ -106,7 +106,7 @@ public class ExcelHelper {
     // DOCENTE.xls
     // Formato:
     //   Fila 0: Vacía
-    //   Fila 1: Cabeceras (COORDINACIÓN | CARRERA | NIVEL | MATERIA | PARALELO | PROFESOR)
+    //   Fila 1: Cabeceras (COORDINACIÓN | CARRERA | NIVEL | MATERIA | PARALELO | PROFESOR | CORREO)
     //   Fila 2+: Datos
     //     Col 0: COORDINACIÓN (facultad/área)
     //     Col 1: CARRERA
@@ -114,6 +114,7 @@ public class ExcelHelper {
     //     Col 3: MATERIA (asignatura)
     //     Col 4: PARALELO (ej. "B")
     //     Col 5: PROFESOR (APELLIDOS NOMBRES) ej. "BOSQUEZ MESTANZA ANGELITA LEONOR"
+    //     Col 6: CORREO (email institucional, opcional)
     // =====================================================================
     public static List<TeachingDTO> excelToTeaching(InputStream is) {
         try (Workbook workbook = WorkbookFactory.create(is)) {
@@ -131,6 +132,7 @@ public class ExcelHelper {
                 String materia = getCellValue(row, 3).trim();
                 String paralelo = getCellValue(row, 4).trim();
                 String nombreProfesor = getCellValue(row, 5).trim();
+                String correo = getCellValue(row, 6).trim();
 
                 // Si no hay profesor, o dice "None", ignoramos la fila por completo
                 if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
@@ -148,6 +150,7 @@ public class ExcelHelper {
                 docente.setNombreCompleto(nombreProfesor);
                 docente.setApellidos(partes[0]); // En Docente.xls: apellidos van primero
                 docente.setNombres(partes[1]);   // nombres van segundo
+                docente.setCorreo(correo);
 
                 docentes.add(docente);
             }
@@ -527,6 +530,192 @@ public class ExcelHelper {
         }
         
         return LocalTime.parse(timeStr);
+    }
+
+    // =====================================================================
+    // LECTURA PAGINADA DE DOCENTES (para mejorar rendimiento de carga)
+    // =====================================================================
+    
+    /**
+     * Lee docentes del Excel en lotes (para no cargar todo en memoria).
+     * Devuelve el número total de filas disponibles sin datos de las mismas.
+     * 
+     * @param is InputStream del archivo Excel
+     * @return Número total de filas de datos de docentes disponibles
+     */
+    public static int countTeachingRows(InputStream is) {
+        try (Workbook workbook = WorkbookFactory.create(is)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            int count = 0;
+            
+            // Datos empiezan en fila 2 (índice 2)
+            for (int i = 2; i < sheet.getPhysicalNumberOfRows(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || isRowEmpty(row)) continue;
+                
+                String nombreProfesor = getCellValue(row, 5).trim();
+                if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
+                if (nombreProfesor.isEmpty() && getCellValue(row, 3).trim().isEmpty()) continue;
+                
+                count++;
+            }
+            return count;
+        } catch (IOException e) {
+            throw new RuntimeException("Error al contar filas de Docentes en Excel: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Lee docentes del Excel en lotes (paginación).
+     * @param is InputStream del archivo Excel
+     * @param offset Número de filas a saltar (0 para la primera)
+     * @param limit Máximo número de filas a retornar
+     * @return Lista de TeachingDTO para este lote
+     */
+    public static List<TeachingDTO> excelToTeachingBatch(InputStream is, int offset, int limit) {
+        try (Workbook workbook = WorkbookFactory.create(is)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            List<TeachingDTO> docentes = new ArrayList<>();
+            int skipped = 0;
+            int added = 0;
+
+            // Datos empiezan en fila 2 (índice 2), filas 0-1 son encabezados
+            for (int i = 2; i < sheet.getPhysicalNumberOfRows() && added < limit; i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || isRowEmpty(row)) continue;
+
+                String coordinacion = getCellValue(row, 0).trim();
+                String carrera = getCellValue(row, 1).trim();
+                String nivel = getCellValue(row, 2).trim();
+                String materia = getCellValue(row, 3).trim();
+                String paralelo = getCellValue(row, 4).trim();
+                String nombreProfesor = getCellValue(row, 5).trim();
+                String correo = getCellValue(row, 6).trim();
+
+                // Si no hay profesor, o dice "None", ignoramos la fila por completo
+                if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
+                if (nombreProfesor.isEmpty() && materia.isEmpty()) continue;
+
+                // Saltar filas hasta llegar al offset
+                if (skipped < offset) {
+                    skipped++;
+                    continue;
+                }
+
+                // Nombre del profesor viene en APELLIDOS NOMBRES
+                String[] partes = splitNombreApellido(nombreProfesor, true);
+
+                TeachingDTO docente = new TeachingDTO();
+                docente.setCoordinacionTexto(coordinacion);
+                docente.setCarreraTexto(carrera);
+                docente.setNivelTexto(nivel);
+                docente.setAsignaturaTexto(materia);
+                docente.setParaleloTexto(paralelo);
+                docente.setNombreCompleto(nombreProfesor);
+                docente.setApellidos(partes[0]);
+                docente.setNombres(partes[1]);
+                docente.setCorreo(correo);
+
+                docentes.add(docente);
+                added++;
+            }
+            return docentes;
+        } catch (IOException e) {
+            throw new RuntimeException("Error al parsear lote de Docentes en Excel: " + e.getMessage());
+        }
+    }
+
+    // =====================================================================
+    // LECTURA PAGINADA DE ESTUDIANTES (para mejorar rendimiento de carga)
+    // =====================================================================
+    
+    /**
+     * Cuenta el número total de filas de estudiantes en el Excel.
+     * 
+     * @param is InputStream del archivo Excel
+     * @param carreraTexto parámetro no usado (se incluye solo por compatibilidad)
+     * @param modalidadTexto parámetro no usado (se incluye solo por compatibilidad)
+     * @return Número total de filas de datos de estudiantes disponibles
+     */
+    public static int countStudentRows(InputStream is, String carreraTexto, String modalidadTexto) {
+        try (Workbook workbook = WorkbookFactory.create(is)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            int count = 0;
+            
+            // Datos empiezan en fila 3 (índice 3)
+            for (int i = 3; i < sheet.getPhysicalNumberOfRows(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || isRowEmpty(row)) continue;
+                
+                String identificacion = getCellValue(row, 1).trim();
+                if (identificacion.isEmpty()) continue;
+                
+                count++;
+            }
+            return count;
+        } catch (IOException e) {
+            throw new RuntimeException("Error al contar filas de Estudiantes en Excel: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Lee estudiantes del Excel en lotes (paginación).
+     * @param is InputStream del archivo Excel
+     * @param offset Número de filas a saltar (0 para la primera)
+     * @param limit Máximo número de filas a retornar
+     * @param carreraTexto Carrera por defecto
+     * @param modalidadTexto Modalidad por defecto
+     * @return Lista de StudentLoadDTO para este lote
+     */
+    public static List<StudentLoadDTO> excelToStudentsBatch(InputStream is, int offset, int limit, 
+            String carreraTexto, String modalidadTexto) {
+        try (Workbook workbook = WorkbookFactory.create(is)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            List<StudentLoadDTO> estudiantes = new ArrayList<>();
+            int skipped = 0;
+            int added = 0;
+
+            // Datos empiezan en fila 3 (índice 3), filas 0-2 son encabezados
+            for (int i = 3; i < sheet.getPhysicalNumberOfRows() && added < limit; i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || isRowEmpty(row)) continue;
+
+                String nombreCompleto = getCellValue(row, 0).trim();
+                String identificacion = getCellValue(row, 1).trim();
+                String correo = getCellValue(row, 2).trim();
+                String telefono1 = getCellValue(row, 3).trim();
+                String telefono2 = getCellValue(row, 4).trim();
+
+                if (identificacion.isEmpty()) continue;
+
+                // Saltar filas hasta llegar al offset
+                if (skipped < offset) {
+                    skipped++;
+                    continue;
+                }
+
+                // Combinar teléfonos si hay dos
+                String telefono = (!telefono2.isEmpty()) ? telefono1 + " / " + telefono2 : telefono1;
+
+                // El nombre viene en formato NOMBRES APELLIDOS
+                String[] partes = splitNombreApellido(nombreCompleto, false);
+
+                StudentLoadDTO estudiante = new StudentLoadDTO();
+                estudiante.setIdentificacion(identificacion);
+                estudiante.setNombres(partes[0]);
+                estudiante.setApellidos(partes[1]);
+                estudiante.setCorreo(correo);
+                estudiante.setTelefono(telefono);
+                estudiante.setCarreraTexto(carreraTexto);
+                estudiante.setModalidadTexto(modalidadTexto);
+
+                estudiantes.add(estudiante);
+                added++;
+            }
+            return estudiantes;
+        } catch (IOException e) {
+            throw new RuntimeException("Error al parsear lote de Estudiantes en Excel: " + e.getMessage());
+        }
     }
 
     public static List<Map<String, Object>> excelToGenericMap(InputStream inputStream, String loadType) {

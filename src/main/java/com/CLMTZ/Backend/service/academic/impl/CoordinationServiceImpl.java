@@ -143,7 +143,8 @@ public class CoordinationServiceImpl implements ICoordinationService {
 
         long exitosos = resultados.stream().filter(r -> r.contains(": OK:")).count();
         long errores = resultados.stream().filter(r -> r.contains(": ERROR") || r.contains("FALLÓ SP:")).count();
-        resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
+        // Línea de resumen comentada por solicitud del usuario
+        // resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
 
         return resultados;
     }
@@ -164,7 +165,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
                 // asignatura, paralelo, periodo activo y asignación de clase.
                 String resultadoSP = ejecutarCargaDocenteSP(
                         fila.getNombres(), fila.getApellidos(),
-                        fila.getAsignaturaTexto(), fila.getParaleloTexto());
+                        fila.getAsignaturaTexto(), fila.getParaleloTexto(), fila.getCorreo());
 
                 resultados.add("Docente '" + nombreRef + "': " + resultadoSP);
 
@@ -212,7 +213,8 @@ public class CoordinationServiceImpl implements ICoordinationService {
 
         long exitosos = resultados.stream().filter(r -> r.contains(": OK:")).count();
         long errores = resultados.stream().filter(r -> r.contains(": ERROR")).count();
-        resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
+        // Línea de resumen comentada por solicitud del usuario
+        // resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
 
         return resultados;
     }
@@ -283,7 +285,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
     }
 
     private String ejecutarCargaDocenteSP(String nombres, String apellidos,
-            String asignatura, String paralelo) {
+            String asignatura, String paralelo, String correo) {
 
         try {
             StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_docente");
@@ -291,6 +293,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
             query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
             query.registerStoredProcedureParameter("p_asignatura", String.class, ParameterMode.IN);
             query.registerStoredProcedureParameter("p_paralelo", String.class, ParameterMode.IN);
+            query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);
             query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
             query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
 
@@ -298,6 +301,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
             query.setParameter("p_apellidos", apellidos);
             query.setParameter("p_asignatura", asignatura);
             query.setParameter("p_paralelo", paralelo);
+            query.setParameter("p_correo", correo != null ? correo : "");
             query.execute();
 
             String mensaje = (String) query.getOutputParameterValue("p_mensaje");
