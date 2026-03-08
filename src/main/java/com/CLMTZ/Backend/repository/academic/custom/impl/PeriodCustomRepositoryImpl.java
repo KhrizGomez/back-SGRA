@@ -54,6 +54,7 @@ public class PeriodCustomRepositoryImpl implements IPeriodCustomRepository{
     }
 
     @Override
+    @Transactional
     public SpResponseDTO updatePeriod(PeriodCUDDTO periodCUD){
         String query = "Call academico.sp_up_periodoacademico(?, ?, ?, ?, ?, ?, ?)";
         
@@ -69,16 +70,16 @@ public class PeriodCustomRepositoryImpl implements IPeriodCustomRepository{
                 cs.setString(4, periodCUD.getEndDate());
                 cs.setBoolean(5, periodCUD.getState());
 
-                cs.registerOutParameter(4, Types.VARCHAR);
-                cs.registerOutParameter(5, Types.BOOLEAN);
+                cs.registerOutParameter(6, Types.VARCHAR);
+                cs.registerOutParameter(7, Types.BOOLEAN);
                 
                 return cs;
             },
             (CallableStatement cs) -> {
                 cs.execute();
                 
-                String message = cs.getString(4);
-                Boolean success = cs.getBoolean(5);
+                String message = cs.getString(6);
+                Boolean success = cs.getBoolean(7);
                 
                 return new SpResponseDTO(message, success);
             }
