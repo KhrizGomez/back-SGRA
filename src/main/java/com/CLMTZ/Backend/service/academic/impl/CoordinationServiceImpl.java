@@ -285,7 +285,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
     }
 
     private String ejecutarCargaDocenteSP(String nombres, String apellidos,
-            String asignatura, String paralelo, String correo) {
+                                          String asignatura, String paralelo, String correo) {  // ← agregar correo
 
         try {
             StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_docente");
@@ -293,15 +293,17 @@ public class CoordinationServiceImpl implements ICoordinationService {
             query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
             query.registerStoredProcedureParameter("p_asignatura", String.class, ParameterMode.IN);
             query.registerStoredProcedureParameter("p_paralelo", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-            query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+            query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);        // ← NUEVO
+            query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.INOUT);    // ← INOUT
+            query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.INOUT);     // ← INOUT
 
             query.setParameter("p_nombres", nombres);
             query.setParameter("p_apellidos", apellidos);
             query.setParameter("p_asignatura", asignatura);
             query.setParameter("p_paralelo", paralelo);
-            query.setParameter("p_correo", correo != null ? correo : "");
+            query.setParameter("p_correo", correo);          // ← NUEVO
+            query.setParameter("p_mensaje", "");              // ← valor inicial INOUT
+            query.setParameter("p_exito", false);             // ← valor inicial INOUT
             query.execute();
 
             String mensaje = (String) query.getOutputParameterValue("p_mensaje");
