@@ -4,21 +4,36 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class TeacherSessionHistoryItemDTO {
+public class TeacherSessionHistoryDetailDTO {
     private Integer scheduledId;
     private String subjectName;
     private String scheduledDate;
     private String modality;
-    private String estimatedDuration;
     private String timeSlot;
-    private String statusName;
     private String sessionType;
-    private Integer studentCount;
+    private String statusName;
+    private String estimatedDuration;
+
+    // From tbrefuerzosrealizados
+    private String observation;
+    private String actualDuration;
+
+    // Attendance summary
     private Integer totalParticipants;
     private Integer attendedCount;
     private Double attendancePercentage;
-    private Integer resourceCount;
+
+    // Per-student attendance
+    private List<AttendanceStudentDTO> attendance;
+
+    // Uploaded file resources
+    private List<String> resources;
+
+    // Virtual meeting link
+    private String virtualLink;
 }
