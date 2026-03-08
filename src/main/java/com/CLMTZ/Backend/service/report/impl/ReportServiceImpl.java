@@ -44,6 +44,7 @@ public class ReportServiceImpl implements ReportService {
         m.put("BY_PARALLEL",         List.of("paralelo", "materia", "solicitudes", "asistencia", "inasistencia"));
         m.put("BY_GRADE",            List.of("curso", "solicitudes", "asistencia", "inasistencia"));
         m.put("BY_STUDENT_REQUESTS", List.of("estudiante", "solicitudes", "materia_refuerzo", "asistencia"));
+        m.put("BY_SECTION_AND_GRADE", List.of("curso", "paralelo", "solicitudes", "asistencia", "inasistencia"));
         DEFAULT_COLUMNS = Collections.unmodifiableMap(m);
     }
 
@@ -55,6 +56,7 @@ public class ReportServiceImpl implements ReportService {
         m.put("BY_PARALLEL",         "Solicitudes por Paralelo");
         m.put("BY_GRADE",            "Solicitudes por Curso");
         m.put("BY_STUDENT_REQUESTS", "Solicitudes por Estudiante");
+        m.put("BY_SECTION_AND_GRADE", "Solicitudes por Paralelo y Curso");
         REPORT_TITLES = Collections.unmodifiableMap(m);
     }
 
@@ -174,6 +176,7 @@ public class ReportServiceImpl implements ReportService {
             case "BY_PARALLEL"         -> reportRepository.getPreviewByParallel(periodId, dateFrom, dateTo);
             case "BY_GRADE"            -> reportRepository.getPreviewByGrade(periodId, dateFrom, dateTo);
             case "BY_STUDENT_REQUESTS" -> reportRepository.getPreviewByStudent(periodId, dateFrom, dateTo);
+            case "BY_SECTION_AND_GRADE" -> reportRepository.getPreviewBySectionAndGrade(periodId, dateFrom, dateTo);
             default -> Collections.emptyList();
         };
     }

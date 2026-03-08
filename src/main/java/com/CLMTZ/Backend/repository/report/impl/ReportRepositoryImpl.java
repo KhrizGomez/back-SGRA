@@ -230,4 +230,15 @@ public class ReportRepositoryImpl implements ReportRepository {
             return Collections.emptyList();
         }
     }
+
+    @Override
+    public List<Map<String, Object>> getPreviewBySectionAndGrade(Integer periodId, String dateFrom, String dateTo) {
+        String sql = "SELECT * FROM reforzamiento.fn_sl_reporte_preview_paralelo_curso(" +
+                     ":periodoId, :dateFrom::timestamp, :dateTo::timestamp)";
+        try {
+            return getJdbcTemplate().queryForList(sql, buildFunctionDateParams(periodId, dateFrom, dateTo));
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
 }

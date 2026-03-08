@@ -35,4 +35,6 @@ public interface ReportRepository {
     List<Map<String, Object>> getPreviewByGrade(Integer periodId, String dateFrom, String dateTo);
 
     List<Map<String, Object>> getPreviewByStudent(Integer periodId, String dateFrom, String dateTo);
+
+    List<Map<String, Object>> getPreviewBySectionAndGrade(Integer periodId, String dateFrom, String dateTo);
 }

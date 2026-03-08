@@ -17,7 +17,8 @@ public class ReportController {
 
     /** Tipos de reporte que usan la nueva ruta simple (tabla única). */
     private static final Set<String> SIMPLE_TYPES = Set.of(
-            "BY_SUBJECT", "BY_TEACHER", "BY_PARALLEL", "BY_GRADE", "BY_STUDENT_REQUESTS");
+            "BY_SUBJECT", "BY_TEACHER", "BY_PARALLEL", "BY_GRADE", "BY_STUDENT_REQUESTS",
+            "BY_SECTION_AND_GRADE");
 
     private final ReportService reportService;
 
@@ -109,7 +110,10 @@ public class ReportController {
                                "description", "Solicitudes de refuerzo por nivel/semestre"),
                         Map.of("id", "BY_STUDENT_REQUESTS",
                                "name", "Por Estudiante",
-                               "description", "Solicitudes de refuerzo por estudiante")
+                               "description", "Solicitudes de refuerzo por estudiante"),
+                        Map.of("id", "BY_SECTION_AND_GRADE",
+                               "name", "Por Paralelo y Curso",
+                               "description", "Distribucion de solicitudes por paralelo y nivel (semestre)")
                 ),
                 "formats", java.util.List.of("EXCEL", "PDF")
         ));
@@ -122,6 +126,7 @@ public class ReportController {
             case "BY_PARALLEL"         -> "reporte_por_paralelo";
             case "BY_GRADE"            -> "reporte_por_curso";
             case "BY_STUDENT_REQUESTS" -> "reporte_por_estudiante";
+            case "BY_SECTION_AND_GRADE"  -> "reporte_por_paralelo_y_curso";
             case "COORDINATION_DASHBOARD" -> "reporte_coordinacion";
             case "ATTENDANCE_DETAIL"      -> "reporte_asistencia";
             case "REQUESTS_DETAIL"        -> "reporte_solicitudes";
