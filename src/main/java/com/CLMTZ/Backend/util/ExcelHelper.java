@@ -122,7 +122,7 @@ public class ExcelHelper {
             List<TeachingDTO> docentes = new ArrayList<>();
 
             // Datos empiezan en fila 2 (índice 2), filas 0-1 son encabezados
-            for (int i = 2; i < sheet.getPhysicalNumberOfRows(); i++) {
+            for (int i = 2; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
 
@@ -549,7 +549,7 @@ public class ExcelHelper {
             int count = 0;
             
             // Datos empiezan en fila 2 (índice 2)
-            for (int i = 2; i < sheet.getPhysicalNumberOfRows(); i++) {
+            for (int i = 2; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
                 
@@ -580,7 +580,7 @@ public class ExcelHelper {
             int added = 0;
 
             // Datos empiezan en fila 2 (índice 2), filas 0-1 son encabezados
-            for (int i = 2; i < sheet.getPhysicalNumberOfRows() && added < limit; i++) {
+            for (int i = 2; i <= sheet.getLastRowNum() && added < limit; i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
 

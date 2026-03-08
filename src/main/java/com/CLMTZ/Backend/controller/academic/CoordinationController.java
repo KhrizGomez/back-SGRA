@@ -262,14 +262,15 @@ public class CoordinationController {
         java.util.LinkedHashMap<String, TeachingDTO> deduped = new java.util.LinkedHashMap<>();
         
         for (TeachingDTO teacher : batch) {
-            // Crear clave única: nombres + apellidos (en mayúsculas)
-            String key = (teacher.getNombres() + "|" + teacher.getApellidos()).toUpperCase().trim();
+            // Clave única: nombres + apellidos + asignatura + paralelo
+            // Así el mismo docente con diferente paralelo/asignatura se trata como registro distinto
+            String key = (teacher.getNombres() + "|" + teacher.getApellidos() + "|" +
+                teacher.getAsignaturaTexto() + "|" + teacher.getParaleloTexto()).toUpperCase().trim();
             
             if (!deduped.containsKey(key)) {
-                // Primer registro con estos nombres/apellidos
                 deduped.put(key, teacher);
             }
-            // Si ya existe, lo ignoramos (mantiene el primero)
+            // Si ya existe la misma combinación exacta, la ignoramos
         }
         
         // Convertir de vuelta a lista
