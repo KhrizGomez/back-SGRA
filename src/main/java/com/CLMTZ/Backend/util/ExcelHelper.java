@@ -718,7 +718,114 @@ public class ExcelHelper {
         }
     }
 
+    /**
+     * Convierte un archivo Excel en una lista de mapas genéricos (clave-valor) según el tipo de carga.
+     * Usado por la validación IA para analizar los datos antes de subirlos.
+     *
+     * @param inputStream InputStream del archivo Excel
+     * @param loadType    tipo de carga: "students", "teachers", "registrations"
+     * @return lista de mapas donde cada mapa representa una fila del Excel
+     */
     public static List<Map<String, Object>> excelToGenericMap(InputStream inputStream, String loadType) {
-        throw new UnsupportedOperationException("Unimplemented method 'excelToGenericMap'");
+        try (Workbook workbook = WorkbookFactory.create(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            List<Map<String, Object>> rows = new ArrayList<>();
+
+            switch (loadType.toLowerCase()) {
+                case "students":
+                    // Estudiantes.xls: Fila 0=encabezado institución, Fila 1=vacía, Fila 2=cabeceras, Fila 3+=datos
+                    for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+                        Row row = sheet.getRow(i);
+                        if (row == null || isRowEmpty(row)) continue;
+
+                        String identificacion = getCellValue(row, 1).trim();
+                        if (identificacion.isEmpty()) continue;
+
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("fila", i + 1); // fila visual (1-based)
+                        map.put("nombre_completo", getCellValue(row, 0).trim());
+                        map.put("identificacion", identificacion);
+                        map.put("correo", getCellValue(row, 2).trim());
+                        map.put("telefono1", getCellValue(row, 3).trim());
+                        map.put("telefono2", getCellValue(row, 4).trim());
+                        rows.add(map);
+                    }
+                    break;
+
+                case "teachers":
+                    // Docente.xls: Fila 0=vacía, Fila 1=cabeceras, Fila 2+=datos
+                    for (int i = 2; i <= sheet.getLastRowNum(); i++) {
+                        Row row = sheet.getRow(i);
+                        if (row == null || isRowEmpty(row)) continue;
+
+                        String nombreProfesor = getCellValue(row, 5).trim();
+                        if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
+
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("fila", i + 1);
+                        map.put("coordinacion", getCellValue(row, 0).trim());
+                        map.put("carrera", getCellValue(row, 1).trim());
+                        map.put("nivel", getCellValue(row, 2).trim());
+                        map.put("materia", getCellValue(row, 3).trim());
+                        map.put("paralelo", getCellValue(row, 4).trim());
+                        map.put("profesor", nombreProfesor);
+                        map.put("correo", getCellValue(row, 6).trim());
+                        rows.add(map);
+                    }
+                    break;
+
+                case "registrations":
+                    // Matricula.xlsx: Fila 6=asignaturas, Fila 7=cabeceras, Fila 8+=datos
+                    for (int i = 8; i <= sheet.getLastRowNum(); i++) {
+                        Row row = sheet.getRow(i);
+                        if (row == null || isRowEmpty(row)) continue;
+
+                        String identificador = getCellValue(row, 3).trim();
+                        if (identificador.isEmpty()) continue;
+
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("fila", i + 1);
+                        map.put("nivel_mat", getCellValue(row, 0).trim());
+                        map.put("nivel_est", getCellValue(row, 1).trim());
+                        map.put("nivel_com", getCellValue(row, 2).trim());
+                        map.put("identificacion", identificador);
+                        map.put("apellidos", getCellValue(row, 4).trim());
+                        map.put("nombres", getCellValue(row, 5).trim());
+                        map.put("sexo", getCellValue(row, 6).trim());
+                        map.put("email", getCellValue(row, 7).trim());
+                        map.put("paralelo", getCellValue(row, 8).trim());
+                        rows.add(map);
+                    }
+                    break;
+
+                default:
+                    // Lectura genérica: primera fila como cabeceras, resto como datos
+                    Row headerRow = sheet.getRow(0);
+                    if (headerRow == null) return rows;
+
+                    List<String> headers = new ArrayList<>();
+                    for (int c = 0; c < headerRow.getLastCellNum(); c++) {
+                        String header = getCellValue(headerRow, c).trim();
+                        headers.add(header.isEmpty() ? "col_" + c : header);
+                    }
+
+                    for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                        Row row = sheet.getRow(i);
+                        if (row == null || isRowEmpty(row)) continue;
+
+                        Map<String, Object> map = new LinkedHashMap<>();
+                        map.put("fila", i + 1);
+                        for (int c = 0; c < headers.size(); c++) {
+                            map.put(headers.get(c), getCellValue(row, c).trim());
+                        }
+                        rows.add(map);
+                    }
+                    break;
+            }
+
+            return rows;
+        } catch (IOException e) {
+            throw new RuntimeException("Error al leer el archivo Excel para validación: " + e.getMessage());
+        }
     }
 }
