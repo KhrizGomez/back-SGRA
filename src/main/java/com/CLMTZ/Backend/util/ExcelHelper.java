@@ -200,14 +200,14 @@ public class ExcelHelper {
                 throw new RuntimeException("El archivo no tiene el formato esperado (falta fila de asignaturas en fila 7).");
             }
             Map<Integer, String> asignaturasPorColumna = new LinkedHashMap<>();
-            for (int col = 9; col <= filaAsignaturas.getLastCellNum(); col++) {
+            for (int col = 9; col < filaAsignaturas.getLastCellNum(); col++) { // getLastCellNum() es exclusivo
                 String nombreAsig = getCellValue(filaAsignaturas, col).trim();
                 if (nombreAsig.isEmpty() || COLUMNAS_RESUMEN.contains(nombreAsig.toUpperCase())) continue;
                 asignaturasPorColumna.put(col, nombreAsig);
             }
 
             // Datos de estudiantes: fila 8 (índice 8) en adelante (fila 7 = cabeceras)
-            for (int i = 8; i < sheet.getPhysicalNumberOfRows(); i++) {
+            for (int i = 8; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
 
@@ -358,7 +358,7 @@ public class ExcelHelper {
                 throw new RuntimeException("El archivo no tiene el formato esperado (falta fila de asignaturas).");
             }
             Map<Integer, String> asignaturasPorColumna = new LinkedHashMap<>();
-            for (int col = 10; col <= filaAsignaturas.getLastCellNum(); col++) { // Empiezan en Col 10
+            for (int col = 10; col < filaAsignaturas.getLastCellNum(); col++) { // getLastCellNum() es exclusivo
                 String nombreAsig = getCellValue(filaAsignaturas, col).trim();
                 if (nombreAsig.isEmpty() || COLUMNAS_RESUMEN.contains(nombreAsig.toUpperCase()) || nombreAsig.equals("0")) {
                     continue;
@@ -370,7 +370,7 @@ public class ExcelHelper {
             Row filaNiveles = sheet.getRow(7);
             Map<Integer, Integer> semestrePorColumna = new LinkedHashMap<>();
             if (filaNiveles != null) {
-                int maxCol = filaAsignaturas.getLastCellNum();
+                int maxCol = filaAsignaturas.getLastCellNum() - 1;
                 Integer currentSemestre = 1; // carry-forward
                 for (int col = 10; col <= maxCol; col++) {
                     String nivelTexto = getCellValue(filaNiveles, col).trim();
@@ -387,7 +387,7 @@ public class ExcelHelper {
             }
 
             // 4. LEER ESTUDIANTES Y SUS MATRICULAS (Fila visual 9 → índice 8 en adelante)
-            for (int i = 8; i < sheet.getPhysicalNumberOfRows(); i++) {
+            for (int i = 8; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || ExcelValidator.isRowEmpty(row)) continue;
 
