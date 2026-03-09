@@ -18,11 +18,28 @@ import lombok.RequiredArgsConstructor;
 public class AuditController {
 
     private final IAccessAuditService accessAuditSer;
+    //private final SessionRegist sessionRegistry;
 
     @GetMapping("/list-access-audit")
     public ResponseEntity<List<AccessAuditResponseDTO>> listAccessAudit(){
         List<AccessAuditResponseDTO>  accessAuditList = accessAuditSer.listAccessAudit();
         return ResponseEntity.ok(accessAuditList);
     }
+
+    // @DeleteMapping("/forzar-cierre")
+    // public ResponseEntity<?> forceLogoutUser(@RequestParam String sessionId) {
+        
+    //     SessionInformation sessionInformation = sessionRegistry.getSessionInformation(sessionId);
+        
+    //     if (sessionInformation != null) {
+    //         sessionInformation.expireNow(); 
+            
+            
+    //         return ResponseEntity.ok(Map.of("message", "Sesión invalidada exitosamente"));
+    //     } else {
+    //         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+    //                 .body(Map.of("error", "La sesión ya no está activa o no existe en el registro"));
+    //     }
+    // }
 
 }

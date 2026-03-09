@@ -29,7 +29,7 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO request, HttpSession session, HttpServletRequest requestSer) {
         try {
             LoginResponseDTO response = authService.login(request, session);
-            accessAuditSer.createAccessAuditLogin(requestSer, request.getUsername(), "Acceso");
+            if(response != null) accessAuditSer.createAccessAuditLogin(requestSer, request.getUsername(), "Acceso", response.getUserId(), session.getId());
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -48,8 +48,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session, HttpServletRequest requestSer) {
-        accessAuditSer.createLogoutAuditLogin(requestSer, authService.getCurrentUser(session).getUserId(), "Cierre sesión");
+    public ResponseEntity<?> logout(HttpSession session, HttpServletRequest requestSer) {  
+        accessAuditSer.createLogoutAuditLogin(requestSer, authService.getCurrentUser(session).getUserId(), "Cierre sesión", session.getId()); 
         authService.logout(session);
         return ResponseEntity.ok(Map.of("message", "Sesion cerrada correctamente"));
     }

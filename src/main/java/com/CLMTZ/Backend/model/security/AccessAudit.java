@@ -45,6 +45,12 @@ public class AccessAudit {
     @Column(name = "fechaacceso", nullable = false, columnDefinition = "timestamp default CURRENT_TIMESTAMP")
     private LocalDateTime accessDate;
 
+    @Column(name = "so", length = 15, nullable = false)
+    private String sO;
+
+    @Column(name = "sesion", nullable = false, columnDefinition = "TEXT")
+    private String session;
+
     @Column(name = "accion", length = 50, nullable = false)
     private String action;
 }

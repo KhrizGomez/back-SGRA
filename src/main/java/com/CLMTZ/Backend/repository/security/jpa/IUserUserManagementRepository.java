@@ -5,7 +5,7 @@ import org.springframework.stereotype.Repository;
 
 import com.CLMTZ.Backend.model.security.UserUserManagement;
 
+
 @Repository
 public interface IUserUserManagementRepository extends JpaRepository<UserUserManagement, Integer> {
-
 }
