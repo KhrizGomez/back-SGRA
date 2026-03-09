@@ -12,5 +12,7 @@ public interface IAccessAuditService {
 
     void createLogoutAuditLogin(HttpServletRequest request, Integer userId, String action, String session);
 
+    void forceLogout(String session);
+
     List<AccessAuditResponseDTO> listAccessAudit();
 }

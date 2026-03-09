@@ -30,6 +30,8 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
             dto.setAnavegador(rs.getString(4));
             dto.setAfechaacceso(rs.getObject(5, LocalDateTime.class));
             dto.setAaccion(rs.getString(6));
+            dto.setAso(rs.getString(7));
+            dto.setAsesion(rs.getString(8));
 
             return dto;
         });

@@ -83,6 +83,16 @@ public class AccessAuditService implements IAccessAuditService{
 
     }
 
+    @Override
+    public void forceLogout(String session){
+        try {
+            AccessAudit accessAudit = accessAuditRepo.findBySession(session);
+            accessAudit.setAccessDate(LocalDateTime.now());
+            accessAudit.setAction("Cierre sesión forzado");
+            accessAuditRepo.save(accessAudit);
+        } catch (Exception e) { }
+    }
+
     private String extractBrowser(String userAgent) {
         if (userAgent == null || userAgent.isEmpty()) {
             return "Desconocido";
