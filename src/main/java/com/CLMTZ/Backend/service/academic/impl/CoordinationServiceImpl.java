@@ -140,9 +140,6 @@ public class CoordinationServiceImpl implements ICoordinationService {
                 e.printStackTrace();
             }
         }
-
-        long exitosos = resultados.stream().filter(r -> r.contains(": OK:")).count();
-        long errores = resultados.stream().filter(r -> r.contains(": ERROR") || r.contains("FALLÓ SP:")).count();
         // Línea de resumen comentada por solicitud del usuario
         // resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
 
@@ -211,8 +208,6 @@ public class CoordinationServiceImpl implements ICoordinationService {
             }
         }
 
-        long exitosos = resultados.stream().filter(r -> r.contains(": OK:")).count();
-        long errores = resultados.stream().filter(r -> r.contains(": ERROR")).count();
         // Línea de resumen comentada por solicitud del usuario
         // resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
 
