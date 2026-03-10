@@ -6,15 +6,17 @@ import com.CLMTZ.Backend.dto.security.Request.VoluntaryChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.LoginResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
+
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 public interface IAuthService {
 
-    LoginResponseDTO login(LoginRequestDTO request, HttpSession session);
+    LoginResponseDTO login(LoginRequestDTO request, HttpSession session, HttpServletRequest requestSer);
 
     LoginResponseDTO getCurrentUser(HttpSession session);
 
-    void logout(HttpSession session);
+    void logout(HttpSession session, HttpServletRequest requestSer);
 
     UserContext getUserContext(HttpSession session);
 

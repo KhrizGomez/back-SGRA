@@ -20,14 +20,14 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class AccessAuditService implements IAccessAuditService{
+public class AccessAuditServiceImpl implements IAccessAuditService{
 
     private final IAccessAuditRepository accessAuditRepo;
     private final IAccessAuditCustomRepository accessAuditCustomRepo;
     private final IUserRepository userRepo;
 
     @Override
-    public void createAccessAuditLogin(HttpServletRequest request, String attemptedUser, String action, Integer userId, String session){
+    public AccessAudit createAccessAuditLogin(HttpServletRequest request, String attemptedUser, String action, Integer userId, String session){
 
         try {
             String userAgent = request.getHeader("User-Agent");
@@ -44,8 +44,10 @@ public class AccessAuditService implements IAccessAuditService{
             LocalDateTime dateTime = LocalDateTime.now();
             AccessAudit accessAudit = new AccessAudit(null, user, ipAddress, browser, dateTime, deviceOs, session, action);
 
-            accessAuditRepo.save(accessAudit);
-        } catch (Exception e) { }
+            return accessAuditRepo.save(accessAudit);
+        } catch (Exception e) { 
+            return null;
+        }
     }
 
     @Override

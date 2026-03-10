@@ -21,4 +21,5 @@ public class UserContext implements Serializable {
     private Character accountState;
     private String dbUser;
     private String dbPassword; // Solo en memoria de sesión, nunca expuesto al cliente
+    private Integer idAuditoriaAcceso; // Tambien se encontrara solo en memoria de la sesion, para no exponerlo a la sesion del cliente
 }

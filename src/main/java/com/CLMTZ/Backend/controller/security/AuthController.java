@@ -5,7 +5,6 @@ import com.CLMTZ.Backend.dto.security.Request.LoginRequestDTO;
 import com.CLMTZ.Backend.dto.security.Request.VoluntaryChangePasswordRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.LoginResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
-import com.CLMTZ.Backend.service.security.IAccessAuditService;
 import com.CLMTZ.Backend.service.security.IAuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,13 +22,11 @@ import java.util.Map;
 public class AuthController {
 
     private final IAuthService authService;
-    private final IAccessAuditService accessAuditSer;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO request, HttpSession session, HttpServletRequest requestSer) {
         try {
-            LoginResponseDTO response = authService.login(request, session);
-            if(response != null) accessAuditSer.createAccessAuditLogin(requestSer, request.getUsername(), "Acceso", response.getUserId(), session.getId());
+            LoginResponseDTO response = authService.login(request, session,requestSer);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -49,8 +46,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpSession session, HttpServletRequest requestSer) {  
-        accessAuditSer.createLogoutAuditLogin(requestSer, authService.getCurrentUser(session).getUserId(), "Cierre sesión", session.getId()); 
-        authService.logout(session);
+        authService.logout(session, requestSer);
         return ResponseEntity.ok(Map.of("message", "Sesion cerrada correctamente"));
     }
 
