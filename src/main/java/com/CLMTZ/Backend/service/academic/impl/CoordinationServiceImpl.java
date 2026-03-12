@@ -19,6 +19,7 @@ import com.CLMTZ.Backend.repository.academic.ICareerRepository;
 import com.CLMTZ.Backend.repository.academic.ICoordinationRepository;
 import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
+import com.CLMTZ.Backend.repository.security.jpa.IAccessRepository;
 import com.CLMTZ.Backend.service.academic.ICoordinationService;
 import com.CLMTZ.Backend.service.external.IEmailService;
 
@@ -38,6 +39,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
     private final IUserRepository userRepository;
     private final ICareerRepository careerRepository;
     private final ICredentialRepository credentialRepository;
+    private final IAccessRepository accessRepository;
     private final IEmailService emailService;
 
     @PersistenceContext
@@ -106,6 +108,11 @@ public class CoordinationServiceImpl implements ICoordinationService {
                     try {
                         Optional<User> userOpt = userRepository.findByIdentification(fila.getIdentificacion());
                         if (userOpt.isPresent()) {
+                            if (accessRepository.existsByUser_UserId(userOpt.get().getUserId())) {
+                                log.info("Credenciales ya existen para estudiante '{}'. Se omite creación y email.", nombreCompleto);
+                                resultados.add("  → Aviso credenciales: ya existen (no se envió email)");
+                                continue;
+                            }
                             // rol → Estudiante (por nombre, no por ID)
                             SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
                                     userOpt.get().getUserId(), "Estudiante");
@@ -173,6 +180,11 @@ public class CoordinationServiceImpl implements ICoordinationService {
                                 fila.getNombres(), fila.getApellidos());
                         if (userOpt.isPresent()) {
                             User docente = userOpt.get();
+                            if (accessRepository.existsByUser_UserId(docente.getUserId())) {
+                                log.info("Credenciales ya existen para docente '{}'. Se omite creación y email.", nombreRef);
+                                resultados.add("  → Aviso credenciales: ya existen (no se envió email)");
+                                continue;
+                            }
                             // rol → Docente (por nombre, no por ID)
                             SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
                                     docente.getUserId(), "Docente");

@@ -199,15 +199,15 @@ public class ExcelAIValidationService {
      */
     protected List<String> getRequiredFieldsForType(String loadType) {
         return switch (loadType) {
-            // Estudiantes.xls: carrera/modalidad vienen del endpoint, periodo del activo en BD
-            case "students" -> List.of("cedula", "nombres", "apellidos", "correo", "carreraTexto", "modalidadTexto");
-            // Docente.xls: nombre del profesor, carrera, asignatura, paralelo (sin cédula ni periodo)
-            case "teachers" -> List.of("nombreCompleto", "carreraTexto", "asignaturaTexto", "paraleloTexto");
+            // Estudiantes.xls: campos presentes en excelToGenericMap
+            case "students" -> List.of("nombre_completo", "identificacion", "correo", "telefono1");
+            // Docente.xls: campos presentes en excelToGenericMap
+            case "teachers" -> List.of("coordinacion", "carrera", "nivel", "materia", "paralelo", "profesor");
             case "class_schedules" -> List.of("cedulaDocente", "nombreAsignatura", "nombreParalelo", "nombrePeriodo", "diaSemana", "horaInicio", "horaFin");
             case "careers" -> List.of("nombre", "codigo");
             case "subjects" -> List.of("nombre", "codigo");
-            // Matricula.xlsx: periodo se obtiene del activo en BD, no viene del Excel
-            case "registrations" -> List.of("cedulaEstudiante", "nombreAsignatura");
+            // Matricula.xlsx: campos presentes en excelToGenericMap
+            case "registrations" -> List.of("identificacion", "apellidos", "nombres", "sexo");
             default -> List.of();
         };
     }
@@ -222,19 +222,28 @@ public class ExcelAIValidationService {
     protected List<String> getBusinessRulesForType(String loadType) {
         return switch (loadType) {
             case "students" -> List.of(
-                    "La cédula debe tener exactamente 10 dígitos numéricos",
-                    "El correo debe ser un email válido",
-                    "El género debe ser 'MUJER' o 'HOMBRE' (viene del archivo Matricula.xlsx)",
-                    "No pueden existir dos estudiantes con la misma cédula en el mismo archivo"
+                    "La identificacion debe ser cedula ecuatoriana valida (10 digitos) o pasaporte alfanumerico (5-20)",
+                    "El correo debe ser un email valido",
+                    "No pueden existir dos estudiantes con la misma identificacion en el mismo archivo"
             );
             case "class_schedules" -> List.of(
-                    "El día de la semana debe estar entre 1 (Lunes) y 7 (Domingo)",
+                    "El dia de la semana debe estar entre 1 (Lunes) y 7 (Domingo)",
                     "La hora de inicio debe ser anterior a la hora de fin",
-                    "No pueden existir horarios duplicados (mismo docente, día y hora)",
-                    "La cédula del docente debe tener 10 dígitos"
+                    "No pueden existir horarios duplicados (mismo docente, dia y hora)",
+                    "La cedula del docente debe tener 10 digitos"
+            );
+            case "teachers" -> List.of(
+                    "El profesor debe tener apellidos y nombres completos",
+                    "La combinacion profesor + materia + paralelo no debe duplicarse en el archivo"
+            );
+            case "registrations" -> List.of(
+                    "La identificacion debe ser cedula ecuatoriana valida (10 digitos) o pasaporte alfanumerico (5-20)",
+                    "El sexo debe iniciar con M o F"
             );
             default -> List.of();
         };
     }
 }
+
+
 
