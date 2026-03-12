@@ -1,8 +1,12 @@
 package com.CLMTZ.Backend.repository.security.custom.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
@@ -35,5 +39,37 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
 
             return dto;
         });
+    }
+
+    @Override
+    public Integer auditAccess(Integer userId, String addressIp, String browser, String action, String so, String session){
+
+        String sql = "Call seguridad.sp_in_auditoriaacceso(?, ?, ?, ?, ?, ?, ?)";
+
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
+
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
+
+                cs.setInt(1, userId);
+                cs.setString(2, addressIp);
+                cs.setString(3, browser);
+                cs.setString(4, action);
+                cs.setString(5, so);
+                cs.setString(6, session);
+
+                cs.registerOutParameter(7, Types.INTEGER);
+
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                return cs.getInt(7);
+            }
+        );
+        
     }
 }

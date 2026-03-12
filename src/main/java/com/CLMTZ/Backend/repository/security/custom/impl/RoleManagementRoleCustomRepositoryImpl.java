@@ -6,7 +6,6 @@ import java.sql.Types;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
@@ -21,7 +20,6 @@ public class RoleManagementRoleCustomRepositoryImpl implements IRoleManagementRo
     private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override
-    @Transactional
     public SpResponseDTO updateRoleGRoleAssignment(String jsonAssignment){
 
         String sql = "CALL seguridad.sp_in_up_asignacionroles(?, ?, ?)";

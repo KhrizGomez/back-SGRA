@@ -10,7 +10,6 @@ import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
 import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.model.security.Access;
-import com.CLMTZ.Backend.model.security.AccessAudit;
 import com.CLMTZ.Backend.model.security.UsersRoles;
 import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
 import com.CLMTZ.Backend.repository.security.custom.IServerCredentialRepository;
@@ -138,9 +137,10 @@ public class AuthServiceImpl implements IAuthService {
         ctx.setDbUser(dbUser);
         ctx.setDbPassword(dbPassword); // Solo en memoria de sesión
 
-        AccessAudit auditId = accessAuditSer.createAccessAuditLogin(requestSer, access.getUsername(), "Acceso", user.getUserId(), session.getId());
+        System.out.println("id: " + user.getUserId() + ", Acceso, sesion: " + session.getId());
+        Integer auditId = accessAuditSer.auditAccess(requestSer, user.getUserId(), "Acceso", session.getId());
 
-        ctx.setIdAuditoriaAcceso(auditId.getAccessAuditId());
+        ctx.setIdAuditoriaAcceso(auditId);
 
         session.setAttribute(SESSION_CTX_KEY, ctx);
         log.info("Login exitoso para usuario: {}. Roles: {}. Estado: {}", request.getUsername(), roles, accountState);
@@ -180,7 +180,7 @@ public class AuthServiceImpl implements IAuthService {
     public void logout(HttpSession session, HttpServletRequest requestSer) {
         UserContext ctx = getUserContext(session);
         if (ctx != null) {
-            accessAuditSer.createLogoutAuditLogin(requestSer, ctx.getUserId(), "Cierre sesión", session.getId());
+            accessAuditSer.auditAccess(requestSer, ctx.getUserId(), "Cierre sesion", session.getId());
             log.info("Logout para usuario: {}", ctx.getUsername());
             // Liberar pool de conexiones del usuario
             if (ctx.getDbUser() != null) { 

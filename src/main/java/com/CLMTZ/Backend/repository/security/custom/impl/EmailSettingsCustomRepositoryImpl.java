@@ -9,7 +9,6 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.security.Request.EmailSettingsRequestDTO;
@@ -24,7 +23,6 @@ public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRe
     private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override
-    @Transactional(readOnly = true)
     public List<EmailSettingsRequestDTO> listEmailSettings(String filter, Boolean state){
         String query = "select * from seguridad.fn_sl_gconfiguracioncorreo(:p_filtro_texto, :p_estado)";
 
@@ -34,10 +32,9 @@ public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRe
     }
 
     @Override
-    @Transactional
     public SpResponseDTO createEmail(Integer userid, String email, String passwordApp, String servidorSmtp, Integer puertoSmtp, Boolean ssl, String nombreRemitente){
 
-        String sql = "CALL seguridad.sp_in_configuracioncorreo(?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "Call seguridad.sp_in_configuracioncorreo(?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 

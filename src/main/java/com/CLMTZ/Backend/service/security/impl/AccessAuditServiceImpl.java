@@ -9,9 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.CLMTZ.Backend.dto.security.Response.AccessAuditResponseDTO;
-import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.model.security.AccessAudit;
-import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.repository.security.custom.IAccessAuditCustomRepository;
 import com.CLMTZ.Backend.repository.security.jpa.IAccessAuditRepository;
 import com.CLMTZ.Backend.service.security.IAccessAuditService;
@@ -24,54 +22,6 @@ public class AccessAuditServiceImpl implements IAccessAuditService{
 
     private final IAccessAuditRepository accessAuditRepo;
     private final IAccessAuditCustomRepository accessAuditCustomRepo;
-    private final IUserRepository userRepo;
-
-    @Override
-    public AccessAudit createAccessAuditLogin(HttpServletRequest request, String attemptedUser, String action, Integer userId, String session){
-
-        try {
-            String userAgent = request.getHeader("User-Agent");
-            String browser = extractBrowser(userAgent);
-            String deviceOs = extractOS(userAgent);
-
-            User user = userRepo.findById(userId).orElse(null);
-
-            String ipAddress = request.getHeader("X-Forwarded-For");
-            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-                ipAddress = request.getRemoteAddr();
-            }
-
-            LocalDateTime dateTime = LocalDateTime.now();
-            AccessAudit accessAudit = new AccessAudit(null, user, ipAddress, browser, dateTime, deviceOs, session, action);
-
-            return accessAuditRepo.save(accessAudit);
-        } catch (Exception e) { 
-            return null;
-        }
-    }
-
-    @Override
-    public void createLogoutAuditLogin(HttpServletRequest request, Integer userId, String action, String session){
-
-        try {
-            String userAgent = request.getHeader("User-Agent");
-            String browser = extractBrowser(userAgent);
-            String deviceOs = extractOS(userAgent);
-
-            User user = userRepo.findById(userId).orElse(null);
-
-            String ipAddress = request.getHeader("X-Forwarded-For");
-            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-                ipAddress = request.getRemoteAddr();
-            }
-
-            LocalDateTime dateTime = LocalDateTime.now();
-            AccessAudit accessAudit = new AccessAudit(null, user, ipAddress, browser, dateTime, deviceOs, session, action);
-
-            accessAuditRepo.save(accessAudit);
-        } catch (Exception e) { }
-
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -86,6 +36,7 @@ public class AccessAuditServiceImpl implements IAccessAuditService{
     }
 
     @Override
+    @Transactional
     public void forceLogout(String session){
         try {
             AccessAudit accessAudit = accessAuditRepo.findBySession(session);
@@ -93,6 +44,27 @@ public class AccessAuditServiceImpl implements IAccessAuditService{
             accessAudit.setAction("Cierre sesión forzado");
             accessAuditRepo.save(accessAudit);
         } catch (Exception e) { }
+    }
+
+    @Override
+    @Transactional
+    public Integer auditAccess(HttpServletRequest request, Integer userId, String action, String session){
+        try {
+            String userAgent = request.getHeader("User-Agent");
+            String browser = extractBrowser(userAgent);
+            String deviceOs = extractOS(userAgent);
+
+            String ipAddress = request.getHeader("X-Forwarded-For");
+            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+                ipAddress = request.getRemoteAddr();
+            }
+
+            System.out.println("id: "+userId + "ip: " + ipAddress + "Navegador: "+ browser + "accion: " + action + "SO: " + deviceOs + "sesion: " + session);
+
+            return accessAuditCustomRepo.auditAccess(userId, ipAddress, browser, action, deviceOs, session);
+        } catch (Exception e) { 
+            return null;
+        }
     }
 
     private String extractBrowser(String userAgent) {
