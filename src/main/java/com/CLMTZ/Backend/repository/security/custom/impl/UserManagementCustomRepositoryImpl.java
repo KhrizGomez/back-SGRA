@@ -11,7 +11,6 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.config.UserContextHolder;
@@ -29,7 +28,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
     private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserListManagementResponseDTO> listUsersManagement(String filterUser, LocalDate date, Boolean state) {
         String query = "SELECT * FROM seguridad.fn_sl_gusuarios(:p_filtro_usuario, :p_fecha, :p_estado)";
 
@@ -116,7 +114,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UserRoleManagementResponseDTO DataUserById(Integer idUser){
         String query = "Select * from seguridad.fn_sl_up_gusuariosroles(:p_iduserg)";
         
