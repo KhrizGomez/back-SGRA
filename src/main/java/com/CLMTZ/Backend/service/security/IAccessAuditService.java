@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public interface IAccessAuditService {
 
-    void forceLogout(String session);
+    Boolean forceLogout(Integer auditAccessId);
 
     List<AccessAuditResponseDTO> listAccessAudit();
 

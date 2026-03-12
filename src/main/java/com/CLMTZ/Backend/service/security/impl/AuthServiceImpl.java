@@ -124,7 +124,11 @@ public class AuthServiceImpl implements IAuthService {
             }
         }
 
-        // 7. Crear UserContext y guardar en sesión
+        session.invalidate();
+        HttpSession newSession = requestSer.getSession(true);
+        log.debug("Sesión regenerada. Nuevo ID: {}", newSession.getId());
+
+        // 8. Crear UserContext y guardar en la NUEVA sesión
         UserContext ctx = new UserContext();
         ctx.setUserId(user.getUserId());
         ctx.setUsername(access.getUsername());
@@ -137,12 +141,11 @@ public class AuthServiceImpl implements IAuthService {
         ctx.setDbUser(dbUser);
         ctx.setDbPassword(dbPassword); // Solo en memoria de sesión
 
-        System.out.println("id: " + user.getUserId() + ", Acceso, sesion: " + session.getId());
-        Integer auditId = accessAuditSer.auditAccess(requestSer, user.getUserId(), "Acceso", session.getId());
+        Integer auditId = accessAuditSer.auditAccess(requestSer, user.getUserId(), "Acceso", newSession.getId());
 
         ctx.setIdAuditoriaAcceso(auditId);
 
-        session.setAttribute(SESSION_CTX_KEY, ctx);
+        newSession.setAttribute(SESSION_CTX_KEY, ctx);
         log.info("Login exitoso para usuario: {}. Roles: {}. Estado: {}", request.getUsername(), roles, accountState);
 
         // 8. Retornar respuesta (sin dbPassword)

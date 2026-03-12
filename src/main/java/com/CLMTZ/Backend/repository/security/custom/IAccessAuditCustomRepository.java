@@ -8,7 +8,12 @@ import com.CLMTZ.Backend.dto.security.Response.AccessAuditResponseDTO;
 
 @Repository
 public interface IAccessAuditCustomRepository {
+    
     List<AccessAuditResponseDTO> listAccessAudit();
 
     Integer auditAccess(Integer userId, String addressIp, String browser, String action, String so, String session);
+
+    void auditForceLogout(Integer auditAccesId, String session);
+
+    String sessionId(Integer auditAccessId);
 }

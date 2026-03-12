@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
@@ -21,6 +22,7 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
 
     private final DynamicDataSourceService dynamicDataSourceService;
 
+    @Override
     public List<AccessAuditResponseDTO> listAccessAudit() {
 
         String query = "select * from seguridad.fn_sl_auditoriaacceso()";
@@ -71,5 +73,34 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
             }
         );
         
+    }
+
+    @Override
+    public String sessionId(Integer auditAccessId){
+
+        String query = "Select seguridad.fn_vltext_sesion(:p_idauditoriaacceso)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("p_idauditoriaacceso", auditAccessId);
+
+        return dynamicDataSourceService.getJdbcTemplate().queryForObject(query, params, String.class);
+    }
+
+    @Override
+    public void auditForceLogout(Integer auditAccesId, String session){
+        String sql = "Call seguridad.sp_in_auditcierreforzado(?, ?)";
+
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
+
+        jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
+
+                cs.setInt(1, auditAccesId);
+                cs.setString(2, session);
+
+                cs.execute();
+
+                return null;
+            });
     }
 }
