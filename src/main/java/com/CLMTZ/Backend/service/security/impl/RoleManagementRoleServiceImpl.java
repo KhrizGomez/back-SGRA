@@ -2,6 +2,7 @@ package com.CLMTZ.Backend.service.security.impl;
 
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.dto.security.Request.UpdateAssignmentRolesGRolesRequestDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
@@ -18,6 +19,7 @@ public class RoleManagementRoleServiceImpl implements IRoleManagementRoleService
     private final IRoleManagementRoleCustomRepository roleManagementRoleCustomRepo;
 
     @Override
+    @Transactional
     public SpResponseDTO  updateRoleGRoleAssignment(List<UpdateAssignmentRolesGRolesRequestDTO> updateAssignmentRoles){
         try {
             String jsonAssignment = objectMapper.writeValueAsString(updateAssignmentRoles);

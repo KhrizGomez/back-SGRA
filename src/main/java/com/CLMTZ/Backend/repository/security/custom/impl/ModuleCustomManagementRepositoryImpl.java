@@ -9,7 +9,6 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.security.Request.MasterDataManagementRequestDTO;
@@ -29,7 +28,6 @@ public class ModuleCustomManagementRepositoryImpl implements IModuleCustomManage
     private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override
-    @Transactional(readOnly = true)
     public List<ModuleListManagementResponseDTO> listModuleManagements(String grole){
         String query = "Select * from seguridad.fn_sl_privilegios_tablas_roles(:rol)";
 
@@ -40,7 +38,6 @@ public class ModuleCustomManagementRepositoryImpl implements IModuleCustomManage
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<MasterTableListManagementResponseDTO> listMasterTables(){
         String query = "Select * from seguridad.fn_sl_tablas_maestras()";
         
@@ -48,7 +45,6 @@ public class ModuleCustomManagementRepositoryImpl implements IModuleCustomManage
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<MasterDataListManagementResponseDTO> listDataMasterTables(String schemaTable, String filtro){
         String query = "Select * from seguridad.fn_sl_datos_tablas_maestras(:p_esquematabla, :p_filtro)";
 
@@ -60,7 +56,6 @@ public class ModuleCustomManagementRepositoryImpl implements IModuleCustomManage
     }
 
     @Override
-    @Transactional
     public SpResponseDTO updateRolePermissions(String jsonPermissions){
 
         String sql = "CALL seguridad.sp_in_up_roles_permisos(?, ?, ?)";
@@ -91,7 +86,6 @@ public class ModuleCustomManagementRepositoryImpl implements IModuleCustomManage
     }
 
     @Override
-    @Transactional
     public SpResponseDTO masterTablesManagement(MasterManagementRequestDTO masterTables){
 
         String sql = "CALL seguridad.sp_in_tablas_maestras(?, ?, ?, ?)";
@@ -123,7 +117,6 @@ public class ModuleCustomManagementRepositoryImpl implements IModuleCustomManage
     }
 
     @Override
-    @Transactional
     public SpResponseDTO masterDataUpdateManagement(MasterDataManagementRequestDTO dataUpdate){
 
         String sql = "CALL seguridad.sp_up_tablas_maestras(?, ?, ?, ?, ?, ?)";

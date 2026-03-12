@@ -10,7 +10,6 @@ import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
 import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.model.security.Access;
-import com.CLMTZ.Backend.model.security.AccessAudit;
 import com.CLMTZ.Backend.model.security.UsersRoles;
 import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
 import com.CLMTZ.Backend.repository.security.custom.IServerCredentialRepository;
@@ -125,7 +124,11 @@ public class AuthServiceImpl implements IAuthService {
             }
         }
 
-        // 7. Crear UserContext y guardar en sesión
+        session.invalidate();
+        HttpSession newSession = requestSer.getSession(true);
+        log.debug("Sesión regenerada. Nuevo ID: {}", newSession.getId());
+
+        // 8. Crear UserContext y guardar en la NUEVA sesión
         UserContext ctx = new UserContext();
         ctx.setUserId(user.getUserId());
         ctx.setUsername(access.getUsername());
@@ -138,11 +141,11 @@ public class AuthServiceImpl implements IAuthService {
         ctx.setDbUser(dbUser);
         ctx.setDbPassword(dbPassword); // Solo en memoria de sesión
 
-        AccessAudit auditId = accessAuditSer.createAccessAuditLogin(requestSer, access.getUsername(), "Acceso", user.getUserId(), session.getId());
+        Integer auditId = accessAuditSer.auditAccess(requestSer, user.getUserId(), "Acceso", newSession.getId());
 
-        ctx.setIdAuditoriaAcceso(auditId.getAccessAuditId());
+        ctx.setIdAuditoriaAcceso(auditId);
 
-        session.setAttribute(SESSION_CTX_KEY, ctx);
+        newSession.setAttribute(SESSION_CTX_KEY, ctx);
         log.info("Login exitoso para usuario: {}. Roles: {}. Estado: {}", request.getUsername(), roles, accountState);
 
         // 8. Retornar respuesta (sin dbPassword)
@@ -180,7 +183,7 @@ public class AuthServiceImpl implements IAuthService {
     public void logout(HttpSession session, HttpServletRequest requestSer) {
         UserContext ctx = getUserContext(session);
         if (ctx != null) {
-            accessAuditSer.createLogoutAuditLogin(requestSer, ctx.getUserId(), "Cierre sesión", session.getId());
+            accessAuditSer.auditAccess(requestSer, ctx.getUserId(), "Cierre sesion", session.getId());
             log.info("Logout para usuario: {}", ctx.getUsername());
             // Liberar pool de conexiones del usuario
             if (ctx.getDbUser() != null) { 

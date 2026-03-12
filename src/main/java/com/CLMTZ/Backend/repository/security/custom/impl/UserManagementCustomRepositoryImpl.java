@@ -2,7 +2,6 @@ package com.CLMTZ.Backend.repository.security.custom.impl;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.List;
@@ -11,10 +10,8 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
-import com.CLMTZ.Backend.config.UserContextHolder;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.UserListManagementResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.UserRoleManagementResponseDTO;
@@ -29,7 +26,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
     private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserListManagementResponseDTO> listUsersManagement(String filterUser, LocalDate date, Boolean state) {
         String query = "SELECT * FROM seguridad.fn_sl_gusuarios(:p_filtro_usuario, :p_fecha, :p_estado)";
 
@@ -50,18 +46,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
 
         return jdbcTemplate.execute(
                 (Connection con) -> {
-
-                    if (UserContextHolder.hasContext()) {
-                        Integer idAcceso = UserContextHolder.getContext().getIdAuditoriaAcceso();
-                        Integer idUsuario = UserContextHolder.getContext().getUserId();
-
-                        if (idAcceso != null && idUsuario != null) {
-                            try (Statement stmt = con.createStatement()) {
-                                stmt.execute("SELECT set_config('mi_app.idauditacceso', '" + idAcceso + "', false)");
-                                stmt.execute("SELECT set_config('mi_app.idusuario', '" + idUsuario + "', false)");
-                            }
-                        }
-                    }
 
                     CallableStatement cs = con.prepareCall(sql);
 
@@ -116,7 +100,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UserRoleManagementResponseDTO DataUserById(Integer idUser){
         String query = "Select * from seguridad.fn_sl_up_gusuariosroles(:p_iduserg)";
         
