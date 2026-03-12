@@ -40,7 +40,7 @@ public class DynamicDataSourceService {
         }
 
         DataSource userDataSource = connectionPool.getDataSource(ctx.getDbUser(), ctx.getDbPassword());
-        return new NamedParameterJdbcTemplate(userDataSource);
+        return new NamedParameterJdbcTemplate(new AuditAwareDataSource(userDataSource));
     }
 
     /**
