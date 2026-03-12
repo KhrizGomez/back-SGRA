@@ -35,7 +35,12 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(HttpSession session, HttpServletRequest requestSer) {
+    public ResponseEntity<?> getCurrentUser(HttpServletRequest requestSer) {
+        HttpSession session = requestSer.getSession(false);
+        if (session == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "No hay sesion activa"));
+        }
         LoginResponseDTO user = authService.getCurrentUser(session);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
