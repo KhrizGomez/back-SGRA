@@ -47,7 +47,7 @@ public class AuthServiceImpl implements IAuthService {
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    @Value("${sgra.master-key}")
+    @Value("${sgra-master-key}")
     private String masterKey;
 
     @Override

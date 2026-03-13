@@ -9,4 +9,5 @@ import com.CLMTZ.Backend.model.security.Access;
 @Repository
 public interface IAccessRepository extends JpaRepository<Access, Integer> {
     Optional<Access> findByUsername(String username);
+    boolean existsByUser_UserId(Integer userId);
 }
