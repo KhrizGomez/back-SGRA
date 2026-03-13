@@ -144,7 +144,6 @@ public class CoordinationServiceImpl implements ICoordinationService {
             resultados.add("ERROR GENERAL: " + e.getMessage());
             e.printStackTrace();
         }
-        }
         // Línea de resumen comentada por solicitud del usuario
         // resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
 
