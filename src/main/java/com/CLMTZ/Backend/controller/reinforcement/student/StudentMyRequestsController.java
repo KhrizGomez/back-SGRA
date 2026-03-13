@@ -3,6 +3,7 @@ package com.CLMTZ.Backend.controller.reinforcement.student;
 import com.CLMTZ.Backend.config.UserContextHolder;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsChipsDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsPageDTO;
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestResourcesDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsStatusSummaryDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
 import com.CLMTZ.Backend.service.reinforcement.student.StudentMyRequestsService;
@@ -98,6 +99,24 @@ public class StudentMyRequestsController {
 
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("message", "Error al obtener resumen de estados: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{requestId}/resources")
+    public ResponseEntity<?> getRequestResources(@PathVariable("requestId") Integer requestId) {
+        try {
+            UserContext ctx = UserContextHolder.getContext();
+            Integer userId = ctx.getUserId();
+
+            if (requestId == null || requestId <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de solicitud inválido"));
+            }
+
+            StudentRequestResourcesDTO response = studentMyRequestsService.getRequestResources(userId, requestId);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Error al obtener recursos: " + e.getMessage()));
         }
     }
 }

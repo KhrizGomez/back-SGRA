@@ -2,6 +2,7 @@ package com.CLMTZ.Backend.repository.reinforcement.student;
 
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsChipsDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsPageDTO;
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestResourcesDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsStatusSummaryDTO;
 
 import java.util.List;
@@ -11,4 +12,5 @@ public interface StudentMyRequestsRepository {
                                            Integer subjectId, String search, Integer page, Integer size);
     StudentMyRequestsChipsDTO getMyRequestsChips(Integer userId, Integer periodId);
     List<StudentMyRequestsStatusSummaryDTO> getMyRequestsSummary(Integer userId, Integer periodId);
+    StudentRequestResourcesDTO getRequestResources(Integer userId, Integer requestId);
 }

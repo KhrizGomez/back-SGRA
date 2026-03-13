@@ -3,6 +3,7 @@ package com.CLMTZ.Backend.service.reinforcement.student.impl;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsChipsDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsPageDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsStatusSummaryDTO;
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestResourcesDTO;
 import com.CLMTZ.Backend.repository.reinforcement.student.StudentMyRequestsRepository;
 import com.CLMTZ.Backend.service.reinforcement.student.StudentMyRequestsService;
 import org.springframework.stereotype.Service;
@@ -34,5 +35,10 @@ public class StudentMyRequestsServiceImpl implements StudentMyRequestsService {
     @Override
     public List<StudentMyRequestsStatusSummaryDTO> getMyRequestsSummary(Integer userId, Integer periodId) {
         return studentMyRequestsRepository.getMyRequestsSummary(userId, periodId);
+    }
+
+    @Override
+    public StudentRequestResourcesDTO getRequestResources(Integer userId, Integer requestId) {
+        return studentMyRequestsRepository.getRequestResources(userId, requestId);
     }
 }
