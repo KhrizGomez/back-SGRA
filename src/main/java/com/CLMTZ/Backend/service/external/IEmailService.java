@@ -14,4 +14,10 @@ public interface IEmailService {
      */
     void sendEmail(EmailSettingsResponseDTO config, String to, String subject, String body);
 
+    /**
+     * Envía un email de forma asíncrona (no bloquea el hilo llamante).
+     * Usar para cargas masivas donde no se requiere esperar confirmación.
+     */
+    void sendEmailAsync(String to, String subject, String body);
+
 }

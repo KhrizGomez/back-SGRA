@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.model.general;
 
+import com.CLMTZ.Backend.model.reinforcement.ScheduledReinforcement;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,4 +33,9 @@ public class Notification {
     
     @Column(name = "fechaenvio", nullable = false, columnDefinition = "timestamp default CURRENT_TIMESTAMP")
     private LocalDateTime dateSent = LocalDateTime.now();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idrefuerzoprogramado", nullable = true,
+            foreignKey = @ForeignKey(name = "fk_notificacion_refuerzoprogramado"))
+    private ScheduledReinforcement scheduledReinforcement;
 }

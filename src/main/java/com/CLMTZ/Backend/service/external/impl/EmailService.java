@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.CLMTZ.Backend.dto.security.Response.EmailSettingsResponseDTO;
@@ -32,7 +33,7 @@ public class EmailService implements IEmailService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Value("${sgra.master-key}")
+    @Value("${sgra-master-key}")
     private String masterKey;
 
     // ─── Método simplificado: cualquier módulo puede usarlo ───
@@ -41,6 +42,18 @@ public class EmailService implements IEmailService {
     public void sendEmail(String to, String subject, String body) {
         EmailSettingsResponseDTO config = getActiveEmailConfig();
         sendEmail(config, to, subject, body);
+    }
+
+    // ─── Método asíncrono para cargas masivas ───
+
+    @Async
+    @Override
+    public void sendEmailAsync(String to, String subject, String body) {
+        try {
+            sendEmail(to, subject, body);
+        } catch (Exception e) {
+            log.error("❌ Error en envío asíncrono a {}: {}", to, e.getMessage());
+        }
     }
 
     // ─── Método con config explícita (mantiene compatibilidad) ───
