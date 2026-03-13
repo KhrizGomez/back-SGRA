@@ -34,12 +34,10 @@ public class AuditAwareDataSource implements DataSource{
 
     private void applyAuditContext(Connection conn) throws SQLException {
         UserContext ctx = UserContextHolder.getContext();
-        if (ctx != null && ctx.getIdAuditoriaAcceso() != null && ctx.getUserId() != null) {
+        if (ctx != null && ctx.getIdAuditoriaAcceso() != null) {
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("SELECT set_config('mi_app.idauditacceso', '"
                         + ctx.getIdAuditoriaAcceso() + "', false)");
-                stmt.execute("SELECT set_config('mi_app.idusuario', '"
-                        + ctx.getUserId() + "', false)");
             }
         }
     }

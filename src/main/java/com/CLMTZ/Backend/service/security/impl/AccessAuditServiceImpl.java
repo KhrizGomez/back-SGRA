@@ -39,7 +39,6 @@ public class AccessAuditServiceImpl implements IAccessAuditService{
         try {
             String session = accessAuditCustomRepo.sessionId(auditAccessId);
             boolean success = customSessionReg.forceInvalidateSession(session);
-            System.out.println("auditAccessId: " + auditAccessId+ " session: " + session);
             if (success) {
                 accessAuditCustomRepo.auditForceLogout(auditAccessId, session);
                 success = true;
