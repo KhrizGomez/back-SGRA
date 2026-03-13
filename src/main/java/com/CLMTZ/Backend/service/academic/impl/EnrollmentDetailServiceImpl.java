@@ -14,9 +14,7 @@ import com.CLMTZ.Backend.repository.academic.*;
 import com.CLMTZ.Backend.service.academic.IEnrollmentDetailService;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.ParameterMode;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -77,25 +75,17 @@ public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
             return report;
         }
 
-        for (EnrollmentDetailLoadDTO dto : registrationDTOs) {
-            try {
-                System.out.println("Procesando matrícula: " + dto.getIdentificador() + " - " + dto.getAsignatura());
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String jsonData = mapper.writeValueAsString(registrationDTOs);
 
-                String resultadoSP = ejecutarCargaDetalleMatriculaSP(
-                        dto.getIdentificador(), dto.getAsignatura(),
-                        dto.getSemestre(), dto.getParalelo(), dto.getSexo());
+            System.out.println("[UPLOAD-REGISTRATIONS] Enviando " + registrationDTOs.size() + " registros al SP como JSON");
+            String resultadoSP = ejecutarCargaDetalleMatriculaSP(jsonData);
+            report.add(resultadoSP);
 
-                if (resultadoSP.startsWith("OK:")) {
-                    String mensajeSP = resultadoSP.substring(3).trim();
-                    report.add("Asignatura: " + dto.getAsignatura() + " → ID " + dto.getIdentificador() + ": " + mensajeSP);
-                } else {
-                    report.add("ID " + dto.getIdentificador() + " - " + dto.getAsignatura() + ": " + resultadoSP);
-                }
-
-            } catch (Exception e) {
-                report.add("ID " + dto.getIdentificador() + " - " + dto.getAsignatura() + ": ERROR (" + e.getMessage() + ")");
-                e.printStackTrace();
-            }
+        } catch (Exception e) {
+            report.add("ERROR GENERAL: " + e.getMessage());
+            e.printStackTrace();
         }
         // Línea de resumen comentada por solicitud del usuario
         // report.add(0, "RESUMEN: " + registrationDTOs.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores/advertencias.");
@@ -105,28 +95,31 @@ public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
 
     // --- STORED PROCEDURE ---
 
-    private String ejecutarCargaDetalleMatriculaSP(String identificador, String asignatura,
-            Integer semestre, String paralelo, String sexo) {
+    private String ejecutarCargaDetalleMatriculaSP(String jsonData) {
+        try {
+            org.hibernate.Session session = entityManager.unwrap(org.hibernate.Session.class);
+            Object[] result = session.doReturningWork(connection -> {
+                try (java.sql.CallableStatement cs = connection.prepareCall(
+                        "CALL academico.sp_in_carga_detalle_matricula(?, ?, ?)")) {
+                    cs.setObject(1, jsonData, java.sql.Types.OTHER);
+                    cs.registerOutParameter(2, java.sql.Types.VARCHAR);
+                    cs.registerOutParameter(3, java.sql.Types.BOOLEAN);
+                    cs.execute();
+                    return new Object[]{cs.getString(2), cs.getBoolean(3)};
+                }
+            });
 
-        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_detalle_matricula");
-        query.registerStoredProcedureParameter("p_identificador_est", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_nombre_asignatura", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_semestre", Integer.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_paralelo", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_sexo", String.class, ParameterMode.IN);
-        query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-        query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+            String mensaje = (String) result[0];
+            Boolean exito = (Boolean) result[1];
+            return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
 
-        query.setParameter("p_identificador_est", identificador);
-        query.setParameter("p_nombre_asignatura", asignatura);
-        query.setParameter("p_semestre", semestre);
-        query.setParameter("p_paralelo", paralelo);
-        query.setParameter("p_sexo", sexo);
-        query.execute();
-
-        String mensaje = (String) query.getOutputParameterValue("p_mensaje");
-        Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
-        return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+        } catch (Exception e) {
+            entityManager.clear();
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+            Throwable causa = e.getCause();
+            String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
+            return "FALLÓ SP: Error interno: " + causaMsg;
+        }
     }
 
     // --- CONVERSORES DTO ---
