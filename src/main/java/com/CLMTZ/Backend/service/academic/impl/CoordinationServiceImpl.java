@@ -23,9 +23,7 @@ import com.CLMTZ.Backend.service.academic.ICoordinationService;
 import com.CLMTZ.Backend.service.external.IEmailService;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.ParameterMode;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -86,35 +84,33 @@ public class CoordinationServiceImpl implements ICoordinationService {
         List<String> resultados = new ArrayList<>();
 
         if (dtos == null || dtos.isEmpty()) {
-            resultados.add("ADVERTENCIA: No se encontraron registros válidos en el archivo. Verifique que el Excel tenga el formato correcto (datos a partir de la fila 4).");
+            resultados.add("ADVERTENCIA: No se encontraron registros válidos para procesar.");
             return resultados;
         }
 
-        for (StudentLoadDTO fila : dtos) {
-            try {
-                System.out.println("Procesando Identificación: " + fila.getIdentificacion());
+        try {
+            // Convertir la lista de DTOs a JSON para el SP
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String jsonData = mapper.writeValueAsString(dtos);
 
-                String resultadoSP = ejecutarCargaEstudianteSP(
-                        fila.getIdentificacion(), fila.getNombres(), fila.getApellidos(),
-                        fila.getCorreo(), fila.getTelefono());
+            System.out.println("[UPLOAD-STUDENTS] Enviando " + dtos.size() + " registros al SP como JSON");
+            String resultadoSP = ejecutarCargaEstudianteSP(jsonData);
+            resultados.add(resultadoSP);
 
-                String nombreCompleto = (fila.getNombres() + " " + fila.getApellidos()).trim();
-                resultados.add("Estudiante '" + nombreCompleto + "': " + resultadoSP);
-
-                // Si la carga fue exitosa, crear credenciales de acceso APP
-                if (resultadoSP.startsWith("OK:")) {
+            // Si el SP procesó correctamente, crear credenciales y enviar emails
+            if (resultadoSP.startsWith("OK:")) {
+                for (StudentLoadDTO fila : dtos) {
+                    String nombreCompleto = (fila.getNombres() + " " + fila.getApellidos()).trim();
                     try {
                         Optional<User> userOpt = userRepository.findByIdentification(fila.getIdentificacion());
                         if (userOpt.isPresent()) {
-                            // rol → Estudiante (por nombre, no por ID)
                             SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
                                     userOpt.get().getUserId(), "Estudiante");
                             if (Boolean.TRUE.equals(credResult.getSuccess())) {
                                 log.info("Credenciales creadas para estudiante '{}': {}",
                                         nombreCompleto, credResult.getMessage());
-                                resultados.add("  → Credenciales: " + credResult.getMessage());
+                                resultados.add("  → Credenciales [" + nombreCompleto + "]: " + credResult.getMessage());
 
-                                // Enviar email con credenciales temporales
                                 enviarEmailCredenciales(
                                         fila.getCorreo(),
                                         nombreCompleto,
@@ -125,26 +121,21 @@ public class CoordinationServiceImpl implements ICoordinationService {
                             } else {
                                 log.warn("Error al crear credenciales para estudiante '{}': {}",
                                         nombreCompleto, credResult.getMessage());
-                                resultados.add("  → Aviso credenciales: " + credResult.getMessage());
+                                resultados.add("  → Aviso credenciales [" + nombreCompleto + "]: " + credResult.getMessage());
                             }
                         }
                     } catch (Exception ce) {
                         log.error("Error al crear credenciales para estudiante '{}': {}",
                                 nombreCompleto, ce.getMessage());
-                        resultados.add("  → Error credenciales: " + ce.getMessage());
+                        resultados.add("  → Error credenciales [" + nombreCompleto + "]: " + ce.getMessage());
                     }
                 }
-
-            } catch (Exception e) {
-                resultados.add("ID " + fila.getIdentificacion() + ": ERROR (" + e.getMessage() + ")");
-                e.printStackTrace();
             }
-        }
 
-        long exitosos = resultados.stream().filter(r -> r.contains(": OK:")).count();
-        long errores = resultados.stream().filter(r -> r.contains(": ERROR") || r.contains("FALLÓ SP:")).count();
-        // Línea de resumen comentada por solicitud del usuario
-        // resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
+        } catch (Exception e) {
+            resultados.add("ERROR GENERAL: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         return resultados;
     }
@@ -158,33 +149,30 @@ public class CoordinationServiceImpl implements ICoordinationService {
             return resultados;
         }
 
-        for (TeachingDTO fila : dtos) {
-            String nombreRef = fila.getNombreCompleto() != null ? fila.getNombreCompleto() : fila.getApellidos();
-            try {
-                // El SP gestiona internamente: búsqueda/creación de usuario, docente,
-                // asignatura, paralelo, periodo activo y asignación de clase.
-                String resultadoSP = ejecutarCargaDocenteSP(
-                        fila.getNombres(), fila.getApellidos(),
-                        fila.getAsignaturaTexto(), fila.getParaleloTexto(), fila.getCorreo());
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String jsonData = mapper.writeValueAsString(dtos);
 
-                resultados.add("Docente '" + nombreRef + "': " + resultadoSP);
+            System.out.println("[UPLOAD-TEACHERS] Enviando " + dtos.size() + " registros al SP como JSON");
+            String resultadoSP = ejecutarCargaDocenteSP(jsonData);
+            resultados.add(resultadoSP);
 
-                // Si la carga fue exitosa, crear credenciales de acceso APP
-                if (resultadoSP.startsWith("OK:")) {
+            // Si el SP procesó correctamente, crear credenciales y enviar emails
+            if (resultadoSP.startsWith("OK:")) {
+                for (TeachingDTO fila : dtos) {
+                    String nombreRef = fila.getNombreCompleto() != null ? fila.getNombreCompleto() : fila.getApellidos();
                     try {
                         Optional<User> userOpt = userRepository.findByFirstNameAndLastName(
                                 fila.getNombres(), fila.getApellidos());
                         if (userOpt.isPresent()) {
                             User docente = userOpt.get();
-                            // rol → Docente (por nombre, no por ID)
                             SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
                                     docente.getUserId(), "Docente");
                             if (Boolean.TRUE.equals(credResult.getSuccess())) {
                                 log.info("Credenciales creadas para docente '{}': {}",
                                         nombreRef, credResult.getMessage());
-                                resultados.add("  → Credenciales: " + credResult.getMessage());
+                                resultados.add("  → Credenciales [" + nombreRef + "]: " + credResult.getMessage());
 
-                                // Enviar email con credenciales temporales
                                 enviarEmailCredenciales(
                                         docente.getEmail(),
                                         nombreRef,
@@ -195,136 +183,81 @@ public class CoordinationServiceImpl implements ICoordinationService {
                             } else {
                                 log.warn("Error al crear credenciales para docente '{}': {}",
                                         nombreRef, credResult.getMessage());
-                                resultados.add("  → Aviso credenciales: " + credResult.getMessage());
+                                resultados.add("  → Aviso credenciales [" + nombreRef + "]: " + credResult.getMessage());
                             }
                         }
                     } catch (Exception ce) {
                         log.error("Error al crear credenciales para docente '{}': {}",
                                 nombreRef, ce.getMessage());
-                        resultados.add("  → Error credenciales: " + ce.getMessage());
+                        resultados.add("  → Error credenciales [" + nombreRef + "]: " + ce.getMessage());
                     }
                 }
-
-            } catch (Exception e) {
-                resultados.add("Docente '" + nombreRef + "': ERROR INTERNO (" + e.getMessage() + ")");
-                e.printStackTrace();
             }
-        }
 
-        long exitosos = resultados.stream().filter(r -> r.contains(": OK:")).count();
-        long errores = resultados.stream().filter(r -> r.contains(": ERROR")).count();
-        // Línea de resumen comentada por solicitud del usuario
-        // resultados.add(0, "RESUMEN: " + dtos.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores.");
+        } catch (Exception e) {
+            resultados.add("ERROR GENERAL: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         return resultados;
     }
 
     // --- STORED PROCEDURES ---
 
-    private String ejecutarCargaEstudianteSP(String identificador, String nombres, String apellidos,
-            String correo, String telefono) {
-
+    private String ejecutarCargaEstudianteSP(String jsonData) {
         try {
-            StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_estudiante");
-            query.registerStoredProcedureParameter("p_identificador", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_nombres", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_telefono", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.OUT);
-            query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.OUT);
+            org.hibernate.Session session = entityManager.unwrap(org.hibernate.Session.class);
+            Object[] result = session.doReturningWork(connection -> {
+                try (java.sql.CallableStatement cs = connection.prepareCall(
+                        "CALL academico.sp_in_carga_estudiante(?, ?, ?)")) {
+                    cs.setObject(1, jsonData, java.sql.Types.OTHER);
+                    cs.registerOutParameter(2, java.sql.Types.VARCHAR);
+                    cs.registerOutParameter(3, java.sql.Types.BOOLEAN);
+                    cs.execute();
+                    return new Object[]{cs.getString(2), cs.getBoolean(3)};
+                }
+            });
 
-            query.setParameter("p_identificador", identificador);
-            query.setParameter("p_nombres", nombres);
-            query.setParameter("p_apellidos", apellidos);
-            query.setParameter("p_correo", correo);
-            query.setParameter("p_telefono", telefono);
-            query.execute();
-
-            String mensaje = (String) query.getOutputParameterValue("p_mensaje");
-            Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
+            String mensaje = (String) result[0];
+            Boolean exito = (Boolean) result[1];
             return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
 
         } catch (Exception e) {
-            // Limpiar EntityManager para que no quede en estado inconsistente para los siguientes registros
             entityManager.clear();
-
             String errorMsg = e.getMessage() != null ? e.getMessage() : "";
             Throwable causa = e.getCause();
             String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
-
-            // Detectar violación de constraint unique y dar mensaje amigable
-            if (causaMsg.toLowerCase().contains("duplicate key") || causaMsg.toLowerCase().contains("unique constraint")) {
-                String campoDuplicado = detectarCampoDuplicado(causaMsg, identificador, correo, telefono);
-                log.warn("Registro duplicado al cargar estudiante '{}' '{}': {}", nombres, apellidos, campoDuplicado);
-                return "FALLÓ SP: Ya existe un usuario registrado con el mismo " + campoDuplicado
-                        + ". Verifique los datos del estudiante.";
-            }
-
-            log.error("Error inesperado al ejecutar SP carga estudiante: {}", causaMsg, e);
+            log.error("Error al ejecutar SP carga estudiante: {}", causaMsg, e);
             return "FALLÓ SP: Error interno: " + causaMsg;
         }
     }
 
-    /**
-     * Detecta cuál campo causó la violación de unicidad basándose en el mensaje de error de PostgreSQL.
-     */
-    private String detectarCampoDuplicado(String errorMsg, String identificador, String correo, String telefono) {
-        String lower = errorMsg.toLowerCase();
-        if (lower.contains("identificador") || lower.contains("identification")) {
-            return "identificador/cédula (" + identificador + ")";
-        }
-        if (lower.contains("correo") || lower.contains("email")) {
-            return "correo electrónico (" + correo + ")";
-        }
-        if (lower.contains("telefono") || lower.contains("phone")) {
-            return "teléfono (" + telefono + ")";
-        }
-        // Si el nombre del constraint no es descriptivo, intentar por el nombre de la constraint de Hibernate
-        return "identificador, correo o teléfono (dato ya existente en el sistema)";
-    }
-
-    private String ejecutarCargaDocenteSP(String nombres, String apellidos,
-                                          String asignatura, String paralelo, String correo) {  // ← agregar correo
-
+    private String ejecutarCargaDocenteSP(String jsonData) {
         try {
-            StoredProcedureQuery query = entityManager.createStoredProcedureQuery("academico.sp_in_carga_docente");
-            query.registerStoredProcedureParameter("p_nombres", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_apellidos", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_asignatura", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_paralelo", String.class, ParameterMode.IN);
-            query.registerStoredProcedureParameter("p_correo", String.class, ParameterMode.IN);        // ← NUEVO
-            query.registerStoredProcedureParameter("p_mensaje", String.class, ParameterMode.INOUT);    // ← INOUT
-            query.registerStoredProcedureParameter("p_exito", Boolean.class, ParameterMode.INOUT);     // ← INOUT
+            org.hibernate.Session session = entityManager.unwrap(org.hibernate.Session.class);
+            Object[] result = session.doReturningWork(connection -> {
+                try (java.sql.CallableStatement cs = connection.prepareCall(
+                        "CALL academico.sp_in_carga_docente(?, ?, ?)")) {
+                    cs.setObject(1, jsonData, java.sql.Types.OTHER);
+                    cs.setString(2, "");        // valor inicial INOUT p_mensaje
+                    cs.registerOutParameter(2, java.sql.Types.VARCHAR);
+                    cs.setBoolean(3, false);    // valor inicial INOUT p_exito
+                    cs.registerOutParameter(3, java.sql.Types.BOOLEAN);
+                    cs.execute();
+                    return new Object[]{cs.getString(2), cs.getBoolean(3)};
+                }
+            });
 
-            query.setParameter("p_nombres", nombres);
-            query.setParameter("p_apellidos", apellidos);
-            query.setParameter("p_asignatura", asignatura);
-            query.setParameter("p_paralelo", paralelo);
-            query.setParameter("p_correo", correo);          // ← NUEVO
-            query.setParameter("p_mensaje", "");              // ← valor inicial INOUT
-            query.setParameter("p_exito", false);             // ← valor inicial INOUT
-            query.execute();
-
-            String mensaje = (String) query.getOutputParameterValue("p_mensaje");
-            Boolean exito = (Boolean) query.getOutputParameterValue("p_exito");
+            String mensaje = (String) result[0];
+            Boolean exito = (Boolean) result[1];
             return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
 
         } catch (Exception e) {
-            // Limpiar EntityManager para que no quede en estado inconsistente para los siguientes registros
             entityManager.clear();
-
             String errorMsg = e.getMessage() != null ? e.getMessage() : "";
             Throwable causa = e.getCause();
             String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
-
-            if (causaMsg.toLowerCase().contains("duplicate key") || causaMsg.toLowerCase().contains("unique constraint")) {
-                log.warn("Registro duplicado al cargar docente '{}' '{}': {}", nombres, apellidos, causaMsg);
-                return "FALLÓ SP: Ya existe un docente o usuario registrado con los mismos datos. "
-                        + "Verifique que no esté duplicado en el archivo.";
-            }
-
-            log.error("Error inesperado al ejecutar SP carga docente: {}", causaMsg, e);
+            log.error("Error al ejecutar SP carga docente: {}", causaMsg, e);
             return "FALLÓ SP: Error interno: " + causaMsg;
         }
     }
@@ -350,8 +283,8 @@ public class CoordinationServiceImpl implements ICoordinationService {
             String subject = "SGRA - Credenciales de Acceso al Sistema";
             String body = construirEmailCredenciales(nombreCompleto, username, identificador);
 
-            emailService.sendEmail(correoDestino, subject, body);
-            resultados.add("  → Email enviado a: " + correoDestino);
+            emailService.sendEmailAsync(correoDestino, subject, body);
+            resultados.add("  → Email enviando a: " + correoDestino + " (en segundo plano)");
 
         } catch (Exception e) {
             log.error("Error al enviar email de credenciales a {}: {}", correoDestino, e.getMessage());
