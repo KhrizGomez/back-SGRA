@@ -8,9 +8,9 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public interface IAccessAuditService {
 
-    void createAccessAuditLogin(HttpServletRequest request, String attemptedUser, String action);
-
-    void createLogoutAuditLogin(HttpServletRequest request, Integer userId, String action);
+    Boolean forceLogout(Integer auditAccessId);
 
     List<AccessAuditResponseDTO> listAccessAudit();
+
+    Integer auditAccess(HttpServletRequest request, Integer userId, String action, String session);
 }

@@ -24,6 +24,7 @@ public class TeacherHistoryController {
 
     /**
      * RF18: Get paginated session history for the authenticated teacher.
+     * Only returns sessions with status 'Realizado'.
      */
     @GetMapping("/sessions")
     public ResponseEntity<?> getSessionHistory(
@@ -50,6 +51,35 @@ public class TeacherHistoryController {
             }
             return ResponseEntity.status(500)
                     .body(Map.of("message", "Error retrieving session history: " + extractBusinessMessage(message)));
+        }
+    }
+
+    /**
+     * GET /api/teacher/history/sessions/{scheduledId}
+     * Returns full detail of a completed session: attendance per student with percentage,
+     * uploaded resources, observation, actual duration and virtual link.
+     */
+    @GetMapping("/sessions/{scheduledId}")
+    public ResponseEntity<?> getSessionHistoryDetail(
+            @PathVariable("scheduledId") Integer scheduledId) {
+        try {
+            UserContext ctx = UserContextHolder.getContext();
+            Integer userId = ctx.getUserId();
+
+            if (scheduledId == null || scheduledId <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid scheduledId"));
+            }
+
+            return ResponseEntity.ok(
+                    teacherHistoryService.getSessionHistoryDetail(userId, scheduledId));
+
+        } catch (Exception e) {
+            String message = e.getMessage();
+            if (message != null && message.toLowerCase().contains("no encontrada")) {
+                return ResponseEntity.status(404).body(Map.of("message", extractBusinessMessage(message)));
+            }
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Error obteniendo detalle de sesión: " + extractBusinessMessage(message)));
         }
     }
 

@@ -87,6 +87,8 @@ public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
             report.add("ERROR GENERAL: " + e.getMessage());
             e.printStackTrace();
         }
+        // Línea de resumen comentada por solicitud del usuario
+        // report.add(0, "RESUMEN: " + registrationDTOs.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores/advertencias.");
 
         return report;
     }

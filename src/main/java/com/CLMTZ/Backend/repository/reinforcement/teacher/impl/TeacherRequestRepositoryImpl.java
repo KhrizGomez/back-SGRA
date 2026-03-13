@@ -150,7 +150,15 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
 
                 // Get status IDs
                 Integer aceptadaId = getRequestStatusId("Aceptada");
-                Integer scheduledPendienteId = getScheduledStatusId("Espera espacio");
+
+                // Determine scheduled status based on modality: virtual → Programado, presencial → Espera espacio
+                String modalityNameSql = "SELECT LOWER(modalidad) FROM academico.tbmodalidades WHERE idmodalidad = :modalityId";
+                String modalityName = getJdbcTemplate().queryForObject(
+                                modalityNameSql, new MapSqlParameterSource("modalityId", modalityId), String.class);
+                boolean isVirtual = modalityName != null && modalityName.contains("virtual");
+                Integer scheduledPendienteId = isVirtual
+                                ? getScheduledStatusId("Programado")
+                                : getScheduledStatusId("Espera espacio");
 
                 // Get the session type from the request
                 String sessionTypeSql = "SELECT idtiposesion FROM reforzamiento.tbsolicitudesrefuerzos " +
@@ -195,9 +203,9 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                 detailParams.addValue("scheduledId", scheduledId);
                 getJdbcTemplate().update(insertDetailSql, detailParams);
 
-                // Auto-register attendance rows for every participant of this request
+                // Auto-register attendance rows only for participants who confirmed their participation
                 String getParticipantsSql = "SELECT idparticipante FROM reforzamiento.tbparticipantes " +
-                                "WHERE idsolicitudrefuerzo = :requestId";
+                                "WHERE idsolicitudrefuerzo = :requestId AND participacion = TRUE";
                 List<Integer> participantIds = getJdbcTemplate().queryForList(
                                 getParticipantsSql,
                                 new MapSqlParameterSource("requestId", requestId),

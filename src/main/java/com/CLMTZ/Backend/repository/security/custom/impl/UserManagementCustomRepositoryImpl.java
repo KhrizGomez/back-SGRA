@@ -10,7 +10,6 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
@@ -27,7 +26,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
     private final DynamicDataSourceService dynamicDataSourceService;
 
     @Override
-    @Transactional(readOnly = true)
     public List<UserListManagementResponseDTO> listUsersManagement(String filterUser, LocalDate date, Boolean state) {
         String query = "SELECT * FROM seguridad.fn_sl_gusuarios(:p_filtro_usuario, :p_fecha, :p_estado)";
 
@@ -47,28 +45,28 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
         JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
         return jdbcTemplate.execute(
-            (Connection con) -> {
-                CallableStatement cs = con.prepareCall(sql);
-                
-                cs.setString(1, user);
-                cs.setString(2, password);
-                cs.setString(3, roles);
-                
-                cs.registerOutParameter(4, Types.VARCHAR);
-                cs.registerOutParameter(5, Types.BOOLEAN);
-                
-                return cs;
-            },
-            (CallableStatement cs) -> {
+                (Connection con) -> {
 
-                cs.execute();
-                
-                String message = cs.getString(4);
-                Boolean success = cs.getBoolean(5);
-                
-                return new SpResponseDTO(message, success);
-            }
-        );
+                    CallableStatement cs = con.prepareCall(sql);
+
+                    cs.setString(1, user);
+                    cs.setString(2, password);
+                    cs.setString(3, roles);
+
+                    cs.registerOutParameter(4, Types.VARCHAR);
+                    cs.registerOutParameter(5, Types.BOOLEAN);
+
+                    return cs;
+                },
+                (CallableStatement cs) -> {
+
+                    cs.execute();
+
+                    String message = cs.getString(4);
+                    Boolean success = cs.getBoolean(5);
+
+                    return new SpResponseDTO(message, success);
+                });
     }
 
     @Override
@@ -102,7 +100,6 @@ public class UserManagementCustomRepositoryImpl implements IUserManagementCustom
     }
 
     @Override
-    @Transactional(readOnly = true)
     public UserRoleManagementResponseDTO DataUserById(Integer idUser){
         String query = "Select * from seguridad.fn_sl_up_gusuariosroles(:p_iduserg)";
         

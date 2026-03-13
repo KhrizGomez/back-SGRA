@@ -40,7 +40,7 @@ public class PeriodController {
         return ResponseEntity.ok(request);
     }
 
-    @PutMapping("update-period")
+    @PutMapping("/update-period")
     public ResponseEntity<SpResponseDTO> updatePeriod(@RequestBody PeriodCUDDTO periodCUD){
         SpResponseDTO request = periodSer.updatePeriod(periodCUD);
         return ResponseEntity.ok(request);

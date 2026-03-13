@@ -90,8 +90,9 @@ public class PeriodServiceImpl implements IPeriodService {
     @Override
     public SpResponseDTO updatePeriod(PeriodCUDDTO periodCUD){
         try {
-            return periodCustomRepo.createPeriod(periodCUD);
+            return periodCustomRepo.updatePeriod(periodCUD);
         } catch (Exception e) {
+            e.printStackTrace();
             return new SpResponseDTO("Error inesperado al actualizar el periodo académico", false);
         }
     }

@@ -15,7 +15,10 @@ import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
 import com.CLMTZ.Backend.repository.security.custom.IServerCredentialRepository;
 import com.CLMTZ.Backend.repository.security.jpa.IAccessRepository;
 import com.CLMTZ.Backend.repository.security.jpa.IUsersRolesRepository;
+import com.CLMTZ.Backend.service.security.IAccessAuditService;
 import com.CLMTZ.Backend.service.security.IAuthService;
+
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -40,14 +43,15 @@ public class AuthServiceImpl implements IAuthService {
     private final IServerCredentialRepository serverCredentialRepository;
     private final ICredentialRepository credentialRepository;
     private final UserConnectionPool userConnectionPool;
+    private final IAccessAuditService accessAuditSer;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    @Value("${sgra.master-key}")
+    @Value("${sgra-master-key}")
     private String masterKey;
 
     @Override
-    public LoginResponseDTO login(LoginRequestDTO request, HttpSession session) {
+    public LoginResponseDTO login(LoginRequestDTO request, HttpSession session, HttpServletRequest requestSer) {
         log.info("Intento de login para usuario: {}", request.getUsername());
 
         // 1. Buscar acceso por username
@@ -98,7 +102,7 @@ public class AuthServiceImpl implements IAuthService {
 
         if (accountState.equals('C')) {
             log.info("Usuario con estado 'C' (cambio de contraseña requerido): {}. " +
-                     "Se omite la obtención de credenciales de servidor.", request.getUsername());
+                    "Se omite la obtención de credenciales de servidor.", request.getUsername());
             serverSynced = false;
         } else {
             // Estado 'A' → obtener credenciales del servidor (LOGIN SERVER)
@@ -120,7 +124,11 @@ public class AuthServiceImpl implements IAuthService {
             }
         }
 
-        // 7. Crear UserContext y guardar en sesión
+        session.invalidate();
+        HttpSession newSession = requestSer.getSession(true);
+        log.debug("Sesión regenerada. Nuevo ID: {}", newSession.getId());
+
+        // 8. Crear UserContext y guardar en la NUEVA sesión
         UserContext ctx = new UserContext();
         ctx.setUserId(user.getUserId());
         ctx.setUsername(access.getUsername());
@@ -133,7 +141,11 @@ public class AuthServiceImpl implements IAuthService {
         ctx.setDbUser(dbUser);
         ctx.setDbPassword(dbPassword); // Solo en memoria de sesión
 
-        session.setAttribute(SESSION_CTX_KEY, ctx);
+        Integer auditId = accessAuditSer.auditAccess(requestSer, user.getUserId(), "Acceso", newSession.getId());
+
+        ctx.setIdAuditoriaAcceso(auditId);
+
+        newSession.setAttribute(SESSION_CTX_KEY, ctx);
         log.info("Login exitoso para usuario: {}. Roles: {}. Estado: {}", request.getUsername(), roles, accountState);
 
         // 8. Retornar respuesta (sin dbPassword)
@@ -168,12 +180,13 @@ public class AuthServiceImpl implements IAuthService {
     }
 
     @Override
-    public void logout(HttpSession session) {
+    public void logout(HttpSession session, HttpServletRequest requestSer) {
         UserContext ctx = getUserContext(session);
         if (ctx != null) {
+            accessAuditSer.auditAccess(requestSer, ctx.getUserId(), "Cierre sesion", session.getId());
             log.info("Logout para usuario: {}", ctx.getUsername());
             // Liberar pool de conexiones del usuario
-            if (ctx.getDbUser() != null) {
+            if (ctx.getDbUser() != null) { 
                 userConnectionPool.evict(ctx.getDbUser());
             }
         }

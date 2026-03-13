@@ -33,7 +33,7 @@ public class TeacherSessionController {
 
     /**
      * GET /api/teacher/sessions/active
-     * Returns sessions with status 'Espera espacio' or 'Reprogramado'.
+     * Returns sessions with status 'Espera espacio', 'Reprogramado' or 'Programado'.
      */
     @GetMapping("/active")
     public ResponseEntity<?> getActiveSessions() {

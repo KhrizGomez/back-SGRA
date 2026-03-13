@@ -33,7 +33,7 @@ public class EmailService implements IEmailService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Value("${sgra.master-key}")
+    @Value("${sgra-master-key}")
     private String masterKey;
 
     // ─── Método simplificado: cualquier módulo puede usarlo ───

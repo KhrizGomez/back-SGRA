@@ -59,7 +59,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
     }
 
     /**
-     * Returns sessions with status 'Espera espacio' or 'Reprogramado' for the authenticated teacher.
+     * Returns sessions with status 'Espera espacio', 'Reprogramado' or 'Programado' for the authenticated teacher.
      */
     @Override
     public List<TeacherActiveSessionItemDTO> getActiveSessions(Integer userId) {
@@ -91,7 +91,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
                 "JOIN academico.tbasignaturas a ON sr.idasignatura = a.idasignatura " +
                 "JOIN academico.tbdocentes doc ON sr.iddocente = doc.iddocente " +
                 "WHERE doc.idusuario = :userId " +
-                "AND LOWER(est.estadorefuerzoprogramado) IN ('espera espacio', 'reprogramado') " +
+                "AND LOWER(est.estadorefuerzoprogramado) IN ('espera espacio', 'reprogramado', 'programado') " +
                 "ORDER BY rp.idrefuerzoprogramado DESC, rp.fechaprogramadarefuerzo ASC";
 
         MapSqlParameterSource params = new MapSqlParameterSource("userId", userId);

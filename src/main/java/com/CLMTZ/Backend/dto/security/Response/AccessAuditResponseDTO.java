@@ -17,6 +17,8 @@ public class AccessAuditResponseDTO {
     private String ausuario;
     private String adireccionip;
     private String anavegador;
+    private String aso;
+    private String asesion;
     private LocalDateTime afechaacceso;
     private String aaccion;
 }
