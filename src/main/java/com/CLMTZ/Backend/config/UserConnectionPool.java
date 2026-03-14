@@ -45,6 +45,7 @@ public class UserConnectionPool {
     @Value("${sgra.pool.cleanup-interval-minutes:5}")
     private int cleanupIntervalMinutes;
 
+
     public UserConnectionPool() {
         // Programar limpieza periódica de pools inactivos
         cleanupExecutor.scheduleAtFixedRate(
@@ -61,7 +62,7 @@ public class UserConnectionPool {
             throw new IllegalArgumentException("dbUser y dbPassword no pueden ser null");
         }
 
-        return userPools.compute(dbUser, (key, existing) -> {
+        PoolEntry entry = userPools.compute(dbUser, (key, existing) -> {
             if (existing != null && !existing.dataSource.isClosed()) {
                 existing.lastAccess = System.currentTimeMillis();
                 return existing;
@@ -70,7 +71,8 @@ public class UserConnectionPool {
             log.info("Creando nuevo pool de conexiones para usuario: {}", dbUser);
             HikariDataSource ds = createDataSource(dbUser, dbPassword);
             return new PoolEntry(ds);
-        }).dataSource;
+        });
+        return entry.auditDataSource;
     }
 
     /**
@@ -170,10 +172,12 @@ public class UserConnectionPool {
      */
     private static class PoolEntry {
         final HikariDataSource dataSource;
+        final AuditAwareDataSource auditDataSource;
         volatile long lastAccess;
 
         PoolEntry(HikariDataSource dataSource) {
             this.dataSource = dataSource;
+            this.auditDataSource = new AuditAwareDataSource(dataSource);
             this.lastAccess = System.currentTimeMillis();
         }
     }
