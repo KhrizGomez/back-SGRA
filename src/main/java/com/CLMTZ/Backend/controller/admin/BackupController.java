@@ -49,6 +49,11 @@ public class BackupController {
         }
     }
 
+    @PostMapping("/restore/{fileName}")
+    public ResponseEntity<BackupResultDTO> restore(@PathVariable String fileName) {
+        return ResponseEntity.ok(backupService.restoreBackup(fileName));
+    }
+
     @GetMapping("/download/{fileName}")
     public ResponseEntity<Map<String, Object>> download(@PathVariable String fileName) {
         try {

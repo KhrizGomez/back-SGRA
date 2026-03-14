@@ -19,6 +19,9 @@ import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import javax.sql.DataSource;
+import jakarta.persistence.EntityManagerFactory;
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
@@ -61,6 +64,8 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     private final IBackupScheduleEntryRepository scheduleRepository;
     private final IUserRepository userRepository;
     private final BackupScheduler backupScheduler;
+    private final DataSource dataSource;
+    private final EntityManagerFactory entityManagerFactory;
 
     // @Value fields (Spring injection after constructor)
     @Value("${spring.datasource.url}")
@@ -93,11 +98,86 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
     @Override
     public BackupResultDTO triggerManualBackup() {
+
         UserContext ctx = UserContextHolder.getContext();
         if (ctx == null || ctx.getDbUser() == null) {
             return fail("No hay sesión activa. Inicia sesión nuevamente.", null);
         }
         return executeBackup(ctx.getDbUser(), ctx.getDbPassword(), ctx.getUsername());
+    }
+
+    // ─── Restauración ──────────────────────────────────────────────────────────
+
+    @Override
+    public BackupResultDTO restoreBackup(String fileName) {
+        UserContext ctx = UserContextHolder.getContext();
+        String executedBy = ctx != null ? ctx.getUsername() : "Sistema";
+
+        String pgRestore = findPgRestore();
+        if (pgRestore == null) return fail("pg_restore no encontrado en el servidor.", executedBy);
+
+        BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
+        BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
+        if (!blob.exists()) return fail("Archivo no encontrado: " + fileName, executedBy);
+
+        Path tempFile = null;
+        try {
+            tempFile = Files.createTempFile("sgra_restore_", ".backup");
+            // openInputStream() usa IO bloqueante, evita el error de ByteBuffer de Netty
+            try (java.io.InputStream blobStream = blob.openInputStream()) {
+                Files.copy(blobStream, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            // Limpia todos los schemas de usuario con CASCADE antes de restaurar.
+            // Esto elimina todas las dependencias (FKs, índices, etc.) sin importar
+            // si existen o no en el backup, evitando errores de "depende de ella".
+            dropUserSchemas();
+
+            DbInfo db = parseUrl(datasourceUrl);
+            ProcessBuilder pb = new ProcessBuilder(
+                    pgRestore,
+                    "-h", db.host(), "-p", String.valueOf(db.port()),
+                    "-U", backupDbUser, "-d", db.name(),
+                    "--single-transaction", "--no-owner",
+                    "-F", "c",
+                    tempFile.toAbsolutePath().toString()
+            );
+            pb.environment().put("PGPASSWORD", backupDbPassword);
+            pb.environment().put("PGSSLMODE",  "require");
+            pb.redirectErrorStream(true);
+
+            Process process  = pb.start();
+            String  output   = new String(process.getInputStream().readAllBytes());
+            boolean finished = process.waitFor(30, TimeUnit.MINUTES);
+
+            if (!finished) { process.destroyForcibly(); return fail("pg_restore superó el tiempo límite.", executedBy); }
+            if (process.exitValue() != 0) {
+                log.error("pg_restore falló [{}]: {}", process.exitValue(), output);
+                return fail("pg_restore falló: " + output, executedBy);
+            }
+
+            log.info("Restauración '{}' completada por '{}'.", fileName, executedBy);
+
+            // Limpia el caché de entidades de Hibernate para que todo se re-lea desde la BD restaurada
+            entityManagerFactory.getCache().evictAll();
+
+            // Marca todas las conexiones del pool para reemplazo (se recrean con la BD restaurada)
+            if (dataSource instanceof HikariDataSource hikari) {
+                hikari.getHikariPoolMXBean().softEvictConnections();
+            }
+
+            log.info("Caché de Hibernate y pool de conexiones reseteados post-restauración.");
+            return new BackupResultDTO(true,
+                    "Base de datos restaurada exitosamente desde " + fileName,
+                    fileName, null, null, executedBy,
+                    LocalDateTime.now().format(DISPLAY_FMT));
+
+        } catch (Exception e) {
+            log.error("Error durante restauración: {}", e.getMessage(), e);
+            return fail("Error inesperado durante la restauración: " + e.getMessage(), executedBy);
+        } finally {
+            if (tempFile != null) try { Files.deleteIfExists(tempFile); } catch (Exception ignored) { }
+        }
     }
 
     // ─── Backup automático ─────────────────────────────────────────────────────
@@ -314,6 +394,44 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         e.setHora(dto.getHora());
         e.setMinuto(dto.getMinuto());
         return e;
+    }
+
+    /**
+     * Elimina todos los schemas de usuario con CASCADE (excluye pg_*, information_schema y public).
+     * NO los recrea — pg_restore los crea desde el backup.
+     * El DROP CASCADE elimina tablas, FKs e índices sin importar dependencias.
+     */
+    private void dropUserSchemas() throws Exception {
+        String sql = """
+                DO $$
+                DECLARE r RECORD;
+                BEGIN
+                    FOR r IN
+                        SELECT nspname FROM pg_namespace
+                        WHERE nspname NOT LIKE 'pg_%'
+                          AND nspname NOT IN ('information_schema', 'public')
+                    LOOP
+                        EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.nspname) || ' CASCADE';
+                    END LOOP;
+                END $$;
+                """;
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.Statement  stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            log.info("Schemas de usuario eliminados — pg_restore los recreará desde el backup.");
+        }
+    }
+
+    /** Deriva la ruta de pg_restore desde la de pg_dump (siempre están en el mismo directorio). */
+    private String findPgRestore() {
+        String pgDump = findPgDump();
+        if (pgDump == null) return null;
+        String pgRestore = pgDump.replace("pg_dump", "pg_restore");
+        try {
+            Process p = new ProcessBuilder(pgRestore, "--version").start();
+            p.waitFor(5, TimeUnit.SECONDS);
+            return p.exitValue() == 0 ? pgRestore : null;
+        } catch (Exception e) { return null; }
     }
 
     private String findPgDump() {
