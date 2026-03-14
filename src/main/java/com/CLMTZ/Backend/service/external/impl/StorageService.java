@@ -1,7 +1,5 @@
 package com.CLMTZ.Backend.service.external.impl;
 
-import java.util.UUID;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,7 +30,6 @@ public class StorageService implements IStorageService{
             }
 
             String originalFilename = file.getOriginalFilename();
-            //String extension = originalFilename != null && originalFilename.contains(".") ? originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
             String fileName = originalFilename;
 
             BlobClient blobClient = containerClient.getBlobClient(fileName);
