@@ -125,8 +125,9 @@ public class ReportServiceImpl implements ReportService {
     // ── Reporte simple (replica la vista previa del frontend) ─────────────────
 
     @Override
-    public List<Map<String, Object>> getPreviewRows(String reportType, String dateFrom, String dateTo) {
-        Integer periodId = reportRepository.getActivePeriodId();
+    public List<Map<String, Object>> getPreviewRows(String reportType, String dateFrom, String dateTo,
+                                                    String period) {
+        Integer periodId = resolvePeriodId(period);
         return fetchRows(reportType.toUpperCase(), periodId, dateFrom, dateTo);
     }
 
@@ -135,15 +136,18 @@ public class ReportServiceImpl implements ReportService {
                                        String format,
                                        List<String> columns,
                                        String dateFrom,
-                                       String dateTo) {
+                                       String dateTo,
+                                       String period) {
         String type = reportType.toUpperCase();
 
         if (!DEFAULT_COLUMNS.containsKey(type)) {
             throw new IllegalArgumentException("Tipo de reporte no válido: " + reportType);
         }
 
-        Integer periodId = reportRepository.getActivePeriodId();
-        String periodName = reportRepository.getActivePeriodName();
+        Integer periodId = resolvePeriodId(period);
+        String periodName = (period != null && !period.isBlank())
+                ? period.trim()
+                : reportRepository.getPeriodNameById(periodId);
 
         List<Map<String, Object>> rows = fetchRows(type, periodId, dateFrom, dateTo);
 
@@ -167,6 +171,18 @@ public class ReportServiceImpl implements ReportService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Resuelve el periodId: si se pasa un nombre lo busca, si no usa el período activo. */
+    private Integer resolvePeriodId(String period) {
+        if (period == null || period.isBlank()) {
+            return reportRepository.getActivePeriodId();
+        }
+        Integer id = reportRepository.getPeriodIdByName(period.trim());
+        if (id == null) {
+            throw new IllegalArgumentException("No se encontró el período: '" + period + "'");
+        }
+        return id;
+    }
 
     private List<Map<String, Object>> fetchRows(String type, Integer periodId,
                                                 String dateFrom, String dateTo) {

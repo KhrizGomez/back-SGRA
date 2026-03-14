@@ -35,8 +35,26 @@ public class ReportRepositoryImpl implements ReportRepository {
 
     @Override
     public String getActivePeriodName() {
-        String sql = "SELECT nombreperiodo FROM academico.tbperiodos WHERE idperiodo = :periodId";
-        MapSqlParameterSource params = new MapSqlParameterSource("periodId", getActivePeriodId());
+        return getPeriodNameById(getActivePeriodId());
+    }
+
+    @Override
+    public Integer getPeriodIdByName(String periodName) {
+        if (periodName == null || periodName.isBlank()) return null;
+        String sql = "SELECT idperiodo FROM academico.tbperiodos WHERE UPPER(periodo) = UPPER(:nombre) LIMIT 1";
+        MapSqlParameterSource params = new MapSqlParameterSource("nombre", periodName.trim());
+        try {
+            List<Integer> ids = getJdbcTemplate().queryForList(sql, params, Integer.class);
+            return ids.isEmpty() ? null : ids.get(0);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @Override
+    public String getPeriodNameById(Integer periodId) {
+        String sql = "SELECT periodo FROM academico.tbperiodos WHERE idperiodo = :periodId";
+        MapSqlParameterSource params = new MapSqlParameterSource("periodId", periodId);
         try {
             return getJdbcTemplate().queryForObject(sql, params, String.class);
         } catch (Exception e) {

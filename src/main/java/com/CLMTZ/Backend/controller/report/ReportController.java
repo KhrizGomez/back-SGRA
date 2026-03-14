@@ -29,11 +29,12 @@ public class ReportController {
     // ── Descarga ──────────────────────────────────────────────────────────────
     @GetMapping("/download")
     public ResponseEntity<?> downloadReport(
-            @RequestParam("type")                               String reportType,
+            @RequestParam("type")                                String reportType,
             @RequestParam(value = "format",  defaultValue = "EXCEL") String format,
-            @RequestParam(value = "columns", required = false)  String columns,
-            @RequestParam(value = "dateFrom",required = false)  String dateFrom,
-            @RequestParam(value = "dateTo",  required = false)  String dateTo) {
+            @RequestParam(value = "columns", required = false)   String columns,
+            @RequestParam(value = "dateFrom",required = false)   String dateFrom,
+            @RequestParam(value = "dateTo",  required = false)   String dateTo,
+            @RequestParam(value = "period",  required = false)   String period) {
         try {
             byte[] reportBytes;
             String upperType = reportType.toUpperCase();
@@ -42,7 +43,7 @@ public class ReportController {
                 List<String> colList = (columns != null && !columns.isBlank())
                         ? Arrays.asList(columns.split(","))
                         : null;
-                reportBytes = reportService.generateSimpleReport(upperType, format, colList, dateFrom, dateTo);
+                reportBytes = reportService.generateSimpleReport(upperType, format, colList, dateFrom, dateTo, period);
             } else {
                 reportBytes = reportService.generateReport(upperType, format);
             }
@@ -76,12 +77,13 @@ public class ReportController {
     // ── Vista previa (datos para el frontend) ─────────────────────────────────
     @GetMapping("/preview")
     public ResponseEntity<?> getPreview(
-            @RequestParam("type")                               String reportType,
-            @RequestParam(value = "dateFrom", required = false) String dateFrom,
-            @RequestParam(value = "dateTo",   required = false) String dateTo) {
+            @RequestParam("type")                                String reportType,
+            @RequestParam(value = "dateFrom", required = false)  String dateFrom,
+            @RequestParam(value = "dateTo",   required = false)  String dateTo,
+            @RequestParam(value = "period",   required = false)  String period) {
         try {
             List<Map<String, Object>> rows =
-                    reportService.getPreviewRows(reportType.toUpperCase(), dateFrom, dateTo);
+                    reportService.getPreviewRows(reportType.toUpperCase(), dateFrom, dateTo, period);
             return ResponseEntity.ok(rows);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
