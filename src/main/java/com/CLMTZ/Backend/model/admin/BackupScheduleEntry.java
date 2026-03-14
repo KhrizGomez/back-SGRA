@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.model.admin;
 
+import com.CLMTZ.Backend.model.general.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,6 +19,10 @@ public class BackupScheduleEntry {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Integer id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idusuario", foreignKey = @ForeignKey(name = "fk_schedulesbackup_usuario"))
+    private User usuario;
 
     @Column(name = "habilitado", nullable = false)
     private boolean habilitado = true;

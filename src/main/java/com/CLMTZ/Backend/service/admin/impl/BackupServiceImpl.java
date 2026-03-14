@@ -7,6 +7,7 @@ import com.CLMTZ.Backend.dto.admin.BackupScheduleEntryDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
 import com.CLMTZ.Backend.model.admin.BackupScheduleEntry;
 import com.CLMTZ.Backend.repository.admin.IBackupScheduleEntryRepository;
+import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.service.admin.BackupScheduler;
 import com.CLMTZ.Backend.service.admin.IBackupService;
 import com.azure.storage.blob.BlobClient;
@@ -58,6 +59,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     // Constructor injection (Lombok)
     private final BlobServiceClient blobServiceClient;
     private final IBackupScheduleEntryRepository scheduleRepository;
+    private final IUserRepository userRepository;
     private final BackupScheduler backupScheduler;
 
     // @Value fields (Spring injection after constructor)
@@ -247,6 +249,10 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     public BackupScheduleEntryDTO createSchedule(BackupScheduleEntryDTO dto) {
         BackupScheduleEntry draft = fromDTO(dto);
         draft.setFechaCreacion(LocalDateTime.now());
+        UserContext ctx = UserContextHolder.getContext();
+        if (ctx != null && ctx.getUserId() != null) {
+            userRepository.findById(ctx.getUserId()).ifPresent(draft::setUsuario);
+        }
         final BackupScheduleEntry saved = scheduleRepository.save(draft);
         backupScheduler.applyEntry(saved.getId(), saved.isHabilitado(),
                 toCron(saved), () -> runScheduledBackup(saved.getId()));
@@ -290,7 +296,9 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
     private BackupScheduleEntryDTO toDTO(BackupScheduleEntry e) {
         return new BackupScheduleEntryDTO(
-                e.getId(), e.isHabilitado(), e.getFrecuencia(),
+                e.getId(),
+                e.getUsuario() != null ? e.getUsuario().getUserId() : null,
+                e.isHabilitado(), e.getFrecuencia(),
                 e.getDiaSemana(), e.getDiaMes(), e.getHora(), e.getMinuto(),
                 e.getFechaUltimaEjecucion() != null ? e.getFechaUltimaEjecucion().format(DISPLAY_FMT) : null,
                 e.getResultadoUltimaEjecucion()

@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class BackupScheduleEntryDTO {
     private Integer id;
+    private Integer idusuario;
     private boolean habilitado;
     private String  frecuencia;               // DIARIO | SEMANAL | MENSUAL
     private String  diaSemana;                // SUN, MON, ... (solo SEMANAL)
