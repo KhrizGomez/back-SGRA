@@ -13,6 +13,14 @@ public interface ReportRepository {
 
     String getActivePeriodName();
 
+    /**
+     * Busca el id de un período por su nombre (case-insensitive).
+     * Retorna null si no existe.
+     */
+    Integer getPeriodIdByName(String periodName);
+
+    String getPeriodNameById(Integer periodId);
+
     CoordinationDashboardKpisDTO getKpis(Integer periodId);
 
     CoordinationDashboardAsistenciaDTO getAsistencia(Integer periodId);

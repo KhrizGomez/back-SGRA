@@ -1,5 +1,8 @@
 package com.CLMTZ.Backend.service.academic.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -7,16 +10,23 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+
+import com.CLMTZ.Backend.config.DynamicDataSourceService;
 
 import com.CLMTZ.Backend.dto.academic.CoordinationDTO;
 import com.CLMTZ.Backend.dto.academic.StudentLoadDTO;
 import com.CLMTZ.Backend.dto.academic.TeachingDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
+import com.CLMTZ.Backend.model.academic.Class;
 import com.CLMTZ.Backend.model.academic.Coordination;
+import com.CLMTZ.Backend.model.academic.Teaching;
 import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.repository.academic.ICareerRepository;
+import com.CLMTZ.Backend.repository.academic.IClassRepository;
 import com.CLMTZ.Backend.repository.academic.ICoordinationRepository;
+import com.CLMTZ.Backend.repository.academic.ITeachingRepository;
 import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
 import com.CLMTZ.Backend.repository.security.jpa.IAccessRepository;
@@ -39,6 +49,9 @@ public class CoordinationServiceImpl implements ICoordinationService {
     private final ICredentialRepository credentialRepository;
     private final IAccessRepository accessRepository;
     private final IEmailService emailService;
+    private final DynamicDataSourceService dynamicDataSourceService;
+    private final IClassRepository classRepository;
+    private final ITeachingRepository teachingRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -167,7 +180,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
             String resultadoSP = ejecutarCargaDocenteSP(jsonData);
             resultados.add(resultadoSP);
 
-            // Si el SP procesó correctamente, crear credenciales y enviar emails
+            // Si el SP procesó correctamente, crear credenciales, enviar emails Y actualizar docente en clases
             if (resultadoSP.startsWith("OK:")) {
                 for (TeachingDTO fila : dtos) {
                     String nombreRef = fila.getNombreCompleto() != null ? fila.getNombreCompleto() : fila.getApellidos();
@@ -179,33 +192,36 @@ public class CoordinationServiceImpl implements ICoordinationService {
                             if (accessRepository.existsByUser_UserId(docente.getUserId())) {
                                 log.info("Credenciales ya existen para docente '{}'. Se omite creación y email.", nombreRef);
                                 resultados.add("  → Aviso credenciales: ya existen (no se envió email)");
-                                continue;
-                            }
-                            // rol → Docente (por nombre, no por ID)
-                            SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
-                                    docente.getUserId(), "Docente");
-                            if (Boolean.TRUE.equals(credResult.getSuccess())) {
-                                log.info("Credenciales creadas para docente '{}': {}",
-                                        nombreRef, credResult.getMessage());
-                                resultados.add("  → Credenciales [" + nombreRef + "]: " + credResult.getMessage());
-
-                                enviarEmailCredenciales(
-                                        docente.getEmail(),
-                                        nombreRef,
-                                        credResult.getMessage(),
-                                        docente.getIdentification(),
-                                        resultados
-                                );
                             } else {
-                                log.warn("Error al crear credenciales para docente '{}': {}",
-                                        nombreRef, credResult.getMessage());
-                                resultados.add("  → Aviso credenciales [" + nombreRef + "]: " + credResult.getMessage());
+                                // rol → Docente (por nombre, no por ID)
+                                SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
+                                        docente.getUserId(), "Docente");
+                                if (Boolean.TRUE.equals(credResult.getSuccess())) {
+                                    log.info("Credenciales creadas para docente '{}': {}",
+                                            nombreRef, credResult.getMessage());
+                                    resultados.add("  → Credenciales [" + nombreRef + "]: " + credResult.getMessage());
+
+                                    enviarEmailCredenciales(
+                                            docente.getEmail(),
+                                            nombreRef,
+                                            credResult.getMessage(),
+                                            docente.getIdentification(),
+                                            resultados
+                                    );
+                                } else {
+                                    log.warn("Error al crear credenciales para docente '{}': {}",
+                                            nombreRef, credResult.getMessage());
+                                    resultados.add("  → Aviso credenciales [" + nombreRef + "]: " + credResult.getMessage());
+                                }
                             }
+
+                            // Actualizar docente en la clase si la materia+paralelo+periodo activo ya existía con otro docente
+                            actualizarDocenteEnClase(fila, docente, resultados, nombreRef);
                         }
                     } catch (Exception ce) {
-                        log.error("Error al crear credenciales para docente '{}': {}",
+                        log.error("Error al procesar docente '{}': {}",
                                 nombreRef, ce.getMessage());
-                        resultados.add("  → Error credenciales [" + nombreRef + "]: " + ce.getMessage());
+                        resultados.add("  → Error procesando [" + nombreRef + "]: " + ce.getMessage());
                     }
                 }
             }
@@ -222,29 +238,75 @@ public class CoordinationServiceImpl implements ICoordinationService {
 
     // --- STORED PROCEDURES ---
 
-    private String ejecutarCargaEstudianteSP(String jsonData) {
+    /**
+     * Si la clase (materia+paralelo+periodo activo) ya existe con un docente diferente,
+     * actualiza el docente al nuevo. Esto cubre el caso de cambio de docente en carga Excel.
+     */
+    private void actualizarDocenteEnClase(TeachingDTO fila, User docente,
+                                           List<String> resultados, String nombreRef) {
         try {
-            org.hibernate.Session session = entityManager.unwrap(org.hibernate.Session.class);
-            Object[] result = session.doReturningWork(connection -> {
-                try (java.sql.CallableStatement cs = connection.prepareCall(
-                        "CALL academico.sp_in_carga_estudiante(?, ?, ?)")) {
-                    cs.setObject(1, jsonData, java.sql.Types.OTHER);
-                    cs.registerOutParameter(2, java.sql.Types.VARCHAR);
-                    cs.registerOutParameter(3, java.sql.Types.BOOLEAN);
-                    cs.execute();
-                    return new Object[]{cs.getString(2), cs.getBoolean(3)};
-                }
-            });
+            String asignatura = fila.getAsignaturaTexto();
+            String paralelo   = fila.getParaleloTexto();
+            if (asignatura == null || asignatura.isBlank() || paralelo == null || paralelo.isBlank()) return;
 
-            String mensaje = (String) result[0];
-            Boolean exito = (Boolean) result[1];
-            return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+            Optional<Class> claseOpt = classRepository
+                    .findBySubjectId_SubjectIgnoreCaseAndParallelId_SectionIgnoreCaseAndPeriodId_StateTrue(
+                            asignatura.trim(), paralelo.trim());
+
+            if (claseOpt.isEmpty()) return; // clase no existe aún, el SP se encargó de crearla
+
+            Class clase = claseOpt.get();
+            Optional<Teaching> teachingOpt = teachingRepository.findByUserId_UserId(docente.getUserId());
+            if (teachingOpt.isEmpty()) return; // el docente aún no tiene registro teaching
+
+            Teaching nuevoDocente = teachingOpt.get();
+            Teaching docenteActual = clase.getTeacherId();
+
+            if (docenteActual != null && docenteActual.getTeachingId().equals(nuevoDocente.getTeachingId())) {
+                return; // ya está asignado el mismo docente, nada que actualizar
+            }
+
+            // El docente cambió: actualizar la clase
+            String anteriorNombre = docenteActual != null && docenteActual.getUserId() != null
+                    ? docenteActual.getUserId().getFirstName() + " " + docenteActual.getUserId().getLastName()
+                    : "sin docente";
+            clase.setTeacherId(nuevoDocente);
+            classRepository.save(clase);
+            log.info("Clase '{}' paralelo '{}': docente actualizado de '{}' a '{}'",
+                    asignatura, paralelo, anteriorNombre, nombreRef);
+            resultados.add("  → Docente actualizado en clase [" + asignatura + " / " + paralelo + "]: "
+                    + anteriorNombre + " → " + nombreRef);
 
         } catch (Exception e) {
-            entityManager.clear();
-            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
-            Throwable causa = e.getCause();
-            String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
+            log.warn("No se pudo verificar/actualizar docente en clase para '{}': {}", nombreRef, e.getMessage());
+        }
+    }
+
+    private String ejecutarCargaEstudianteSP(String jsonData) {
+        try {
+            String sql = "CALL academico.sp_in_carga_estudiante(?, ?, ?)";
+            JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
+
+            return jdbcTemplate.execute(
+                (Connection con) -> {
+                    CallableStatement cs = con.prepareCall(sql);
+                    cs.setObject(1, jsonData, Types.OTHER);
+                    cs.registerOutParameter(2, Types.VARCHAR);
+                    cs.registerOutParameter(3, Types.BOOLEAN);
+                    return cs;
+                },
+                (CallableStatement cs) -> {
+                    cs.execute();
+                    String mensaje = cs.getString(2);
+                    Boolean exito = cs.getBoolean(3);
+                    log.info("sp_in_carga_estudiante → exito={}, mensaje={}", exito, mensaje);
+                    return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+                }
+            );
+
+        } catch (Exception e) {
+            String causaMsg = e.getCause() != null && e.getCause().getMessage() != null
+                    ? e.getCause().getMessage() : e.getMessage();
             log.error("Error al ejecutar SP carga estudiante: {}", causaMsg, e);
             return "FALLÓ SP: Error interno: " + causaMsg;
         }
@@ -252,29 +314,29 @@ public class CoordinationServiceImpl implements ICoordinationService {
 
     private String ejecutarCargaDocenteSP(String jsonData) {
         try {
-            org.hibernate.Session session = entityManager.unwrap(org.hibernate.Session.class);
-            Object[] result = session.doReturningWork(connection -> {
-                try (java.sql.CallableStatement cs = connection.prepareCall(
-                        "CALL academico.sp_in_carga_docente(?, ?, ?)")) {
-                    cs.setObject(1, jsonData, java.sql.Types.OTHER);
-                    cs.setString(2, "");        // valor inicial INOUT p_mensaje
-                    cs.registerOutParameter(2, java.sql.Types.VARCHAR);
-                    cs.setBoolean(3, false);    // valor inicial INOUT p_exito
-                    cs.registerOutParameter(3, java.sql.Types.BOOLEAN);
-                    cs.execute();
-                    return new Object[]{cs.getString(2), cs.getBoolean(3)};
-                }
-            });
+            String sql = "CALL academico.sp_in_carga_docente(?, ?, ?)";
+            JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-            String mensaje = (String) result[0];
-            Boolean exito = (Boolean) result[1];
-            return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+            return jdbcTemplate.execute(
+                (Connection con) -> {
+                    CallableStatement cs = con.prepareCall(sql);
+                    cs.setObject(1, jsonData, Types.OTHER);
+                    cs.registerOutParameter(2, Types.VARCHAR);
+                    cs.registerOutParameter(3, Types.BOOLEAN);
+                    return cs;
+                },
+                (CallableStatement cs) -> {
+                    cs.execute();
+                    String mensaje = cs.getString(2);
+                    Boolean exito = cs.getBoolean(3);
+                    log.info("sp_in_carga_docente → exito={}, mensaje={}", exito, mensaje);
+                    return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+                }
+            );
 
         } catch (Exception e) {
-            entityManager.clear();
-            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
-            Throwable causa = e.getCause();
-            String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
+            String causaMsg = e.getCause() != null && e.getCause().getMessage() != null
+                    ? e.getCause().getMessage() : e.getMessage();
             log.error("Error al ejecutar SP carga docente: {}", causaMsg, e);
             return "FALLÓ SP: Error interno: " + causaMsg;
         }

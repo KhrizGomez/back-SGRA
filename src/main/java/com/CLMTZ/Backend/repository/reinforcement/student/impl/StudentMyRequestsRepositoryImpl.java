@@ -5,6 +5,7 @@ import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsChipsDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsPageDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.StudentMyRequestsStatusSummaryDTO;
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestResourcesDTO;
 import com.CLMTZ.Backend.repository.reinforcement.student.StudentMyRequestsRepository;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Repository
 public class StudentMyRequestsRepositoryImpl implements StudentMyRequestsRepository {
@@ -110,5 +112,40 @@ public class StudentMyRequestsRepositoryImpl implements StudentMyRequestsReposit
             dto.setTotal(rs.getLong("total"));
             return dto;
         });
+    }
+
+    @Override
+    public StudentRequestResourcesDTO getRequestResources(Integer userId, Integer requestId) {
+        String sql = "SELECT * FROM reforzamiento.fn_sl_recursos_por_solicitud_estudiante(:userId, :requestId)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("userId", userId);
+        params.addValue("requestId", requestId);
+
+        StudentRequestResourcesDTO response = new StudentRequestResourcesDTO();
+        response.setRequestId(requestId);
+
+        getJdbcTemplate().query(sql, params, (rs) -> {
+            String resourceType = rs.getString("resource_type");
+            String resourceUrl = rs.getString("resource_url");
+
+            if (resourceUrl == null || resourceUrl.isBlank()) {
+                return;
+            }
+
+            String normalizedType = resourceType == null
+                    ? ""
+                    : resourceType.trim().toUpperCase(Locale.ROOT);
+
+            if ("STUDENT_FILE".equals(normalizedType)) {
+                response.getStudentFiles().add(resourceUrl);
+            } else if ("TEACHER_RESOURCE".equals(normalizedType)) {
+                response.getTeacherResources().add(resourceUrl);
+            } else if ("VIRTUAL_LINK".equals(normalizedType)) {
+                response.setVirtualLink(resourceUrl);
+            }
+        });
+
+        return response;
     }
 }

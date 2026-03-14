@@ -32,8 +32,8 @@ public class StorageService implements IStorageService{
             }
 
             String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename != null && originalFilename.contains(".") ? originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
-            String fileName = UUID.randomUUID().toString() + extension;
+            //String extension = originalFilename != null && originalFilename.contains(".") ? originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
+            String fileName = originalFilename;
 
             BlobClient blobClient = containerClient.getBlobClient(fileName);
             blobClient.upload(file.getInputStream(), file.getSize(), true);
