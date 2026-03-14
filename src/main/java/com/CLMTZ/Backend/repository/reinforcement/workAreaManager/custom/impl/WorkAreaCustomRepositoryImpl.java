@@ -44,7 +44,7 @@ public class WorkAreaCustomRepositoryImpl  implements IWorkAreaCustomRepository{
         
         String sql = "Call reforzamiento.sp_up_asignar_areatrabajo(?, ?, ?, ?)";
 
-        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getDefaultJdbcTemplate().getJdbcTemplate();
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
         return jdbcTemplate.execute(
             (Connection con) -> {
