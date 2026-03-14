@@ -19,10 +19,12 @@ public class DynamicDataSourceService {
 
     private final UserConnectionPool connectionPool;
     private final DataSource defaultDataSource; // Fallback para operaciones del sistema
+    private final DataSource auditDefaultDataSource;
 
     public DynamicDataSourceService(UserConnectionPool connectionPool, DataSource defaultDataSource) {
         this.connectionPool = connectionPool;
         this.defaultDataSource = defaultDataSource;
+        this.auditDefaultDataSource = new AuditAwareDataSource(defaultDataSource);
     }
 
     /**
@@ -36,11 +38,11 @@ public class DynamicDataSourceService {
 
         if (ctx == null || ctx.getDbUser() == null || ctx.getDbPassword() == null) {
             log.debug("No hay contexto de usuario, usando conexión por defecto");
-            return new NamedParameterJdbcTemplate(defaultDataSource);
+            return new NamedParameterJdbcTemplate(auditDefaultDataSource);
         }
 
         DataSource userDataSource = connectionPool.getDataSource(ctx.getDbUser(), ctx.getDbPassword());
-        return new NamedParameterJdbcTemplate(new AuditAwareDataSource(userDataSource));
+        return new NamedParameterJdbcTemplate(userDataSource);
     }
 
     /**
@@ -53,7 +55,7 @@ public class DynamicDataSourceService {
 
         if (ctx == null || ctx.getDbUser() == null || ctx.getDbPassword() == null) {
             log.debug("No hay contexto de usuario, usando DataSource por defecto");
-            return defaultDataSource;
+            return auditDefaultDataSource;
         }
 
         return connectionPool.getDataSource(ctx.getDbUser(), ctx.getDbPassword());
@@ -64,7 +66,7 @@ public class DynamicDataSourceService {
      * Usar solo para operaciones que no requieren contexto de usuario.
      */
     public DataSource getDefaultDataSource() {
-        return defaultDataSource;
+        return auditDefaultDataSource;
     }
 
     /**
@@ -72,7 +74,7 @@ public class DynamicDataSourceService {
      * Usar solo para operaciones que no requieren contexto de usuario (login, health checks).
      */
     public NamedParameterJdbcTemplate getDefaultJdbcTemplate() {
-        return new NamedParameterJdbcTemplate(defaultDataSource);
+        return new NamedParameterJdbcTemplate(auditDefaultDataSource);
     }
 
     /**
