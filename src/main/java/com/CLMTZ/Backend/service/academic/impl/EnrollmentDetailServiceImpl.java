@@ -1,33 +1,38 @@
 package com.CLMTZ.Backend.service.academic.impl;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.CLMTZ.Backend.config.DynamicDataSourceService;
 import com.CLMTZ.Backend.dto.academic.EnrollmentDetailDTO;
 import com.CLMTZ.Backend.dto.academic.EnrollmentDetailLoadDTO;
 import com.CLMTZ.Backend.model.academic.EnrollmentDetail;
 import com.CLMTZ.Backend.repository.academic.*;
 import com.CLMTZ.Backend.service.academic.IEnrollmentDetailService;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
 
+    private static final Logger log = LoggerFactory.getLogger(EnrollmentDetailServiceImpl.class);
+
     private final IEnrollmentDetailRepository repository;
     private final IRegistrationsRepository registrationsRepository;
     private final ISubjectRepository subjectRepository;
     private final IParallelRepository parallelRepository;
-
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final DynamicDataSourceService dynamicDataSourceService;
 
     // --- CRUD ---
 
@@ -97,27 +102,30 @@ public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
 
     private String ejecutarCargaDetalleMatriculaSP(String jsonData) {
         try {
-            org.hibernate.Session session = entityManager.unwrap(org.hibernate.Session.class);
-            Object[] result = session.doReturningWork(connection -> {
-                try (java.sql.CallableStatement cs = connection.prepareCall(
-                        "CALL academico.sp_in_carga_detalle_matricula(?, ?, ?)")) {
-                    cs.setObject(1, jsonData, java.sql.Types.OTHER);
-                    cs.registerOutParameter(2, java.sql.Types.VARCHAR);
-                    cs.registerOutParameter(3, java.sql.Types.BOOLEAN);
-                    cs.execute();
-                    return new Object[]{cs.getString(2), cs.getBoolean(3)};
-                }
-            });
+            String sql = "CALL academico.sp_in_carga_detalle_matricula(?, ?, ?)";
+            JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
-            String mensaje = (String) result[0];
-            Boolean exito = (Boolean) result[1];
-            return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+            return jdbcTemplate.execute(
+                (Connection con) -> {
+                    CallableStatement cs = con.prepareCall(sql);
+                    cs.setObject(1, jsonData, Types.OTHER);
+                    cs.registerOutParameter(2, Types.VARCHAR);
+                    cs.registerOutParameter(3, Types.BOOLEAN);
+                    return cs;
+                },
+                (CallableStatement cs) -> {
+                    cs.execute();
+                    String mensaje = cs.getString(2);
+                    Boolean exito = cs.getBoolean(3);
+                    log.info("sp_in_carga_detalle_matricula → exito={}, mensaje={}", exito, mensaje);
+                    return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
+                }
+            );
 
         } catch (Exception e) {
-            entityManager.clear();
-            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
-            Throwable causa = e.getCause();
-            String causaMsg = causa != null && causa.getMessage() != null ? causa.getMessage() : errorMsg;
+            String causaMsg = e.getCause() != null && e.getCause().getMessage() != null
+                    ? e.getCause().getMessage() : e.getMessage();
+            log.error("Error al ejecutar SP carga detalle matrícula: {}", causaMsg, e);
             return "FALLÓ SP: Error interno: " + causaMsg;
         }
     }

@@ -12,4 +12,12 @@ public interface IClassRepository extends JpaRepository<Class, Integer> {
 			String subject,
 			String section,
 			String period);
+
+	/**
+	 * Busca una clase por materia + paralelo en el periodo activo (state = true).
+	 * Usado para detectar si la clase ya existe con un docente diferente al cargar el Excel.
+	 */
+	Optional<Class> findBySubjectId_SubjectIgnoreCaseAndParallelId_SectionIgnoreCaseAndPeriodId_StateTrue(
+			String subject,
+			String section);
 }
