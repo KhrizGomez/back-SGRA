@@ -40,7 +40,8 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
     private static final Logger log = LoggerFactory.getLogger(BackupServiceImpl.class);
 
-    private static final DateTimeFormatter TIMESTAMP_FMT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
+    // Include seconds/millis to avoid overwriting backups created within the same minute.
+    private static final DateTimeFormatter TIMESTAMP_FMT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
     private static final DateTimeFormatter DISPLAY_FMT   = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final String BLOB_PREFIX = "backups/";
 
