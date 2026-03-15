@@ -27,7 +27,8 @@ public class SessionAuthFilter implements Filter {
             "/api/auth/me",
             "/api/auth/forgot-password",
             "/api/auth/verify-code",
-            "/api/auth/reset-password"
+            "/api/auth/reset-password",
+            "/archivos-sgra/"
     );
 
     // Rutas permitidas para usuarios con estado 'C' (cambio de contraseña obligatorio)

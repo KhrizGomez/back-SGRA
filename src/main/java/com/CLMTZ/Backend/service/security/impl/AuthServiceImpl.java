@@ -140,6 +140,7 @@ public class AuthServiceImpl implements IAuthService {
         ctx.setAccountState(accountState);
         ctx.setDbUser(dbUser);
         ctx.setDbPassword(dbPassword); // Solo en memoria de sesión
+        ctx.setInstitutionId(user.getInstitutionId() != null ? user.getInstitutionId().getInstitutionId() : null);
 
         Integer auditId = accessAuditSer.auditAccess(requestSer, user.getUserId(), "Acceso", newSession.getId());
 

@@ -13,6 +13,8 @@ import java.util.List;
 public class ReportDataDTO {
     private String reportTitle;
     private String periodName;
+    private String institutionName;
+    private String institutionLogoUrl;
     private CoordinationDashboardKpisDTO kpis;
     private CoordinationDashboardAsistenciaDTO asistencia;
     private List<CoordinationDashboardSolicitudesMateriaDTO> solicitudesPorMateria;
