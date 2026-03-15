@@ -1,10 +1,11 @@
 package com.CLMTZ.Backend.controller.general;
 
-import java.util.List;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.CLMTZ.Backend.dto.general.InstitutionDTO;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.CLMTZ.Backend.dto.general.InstitutionCUDDTO;
+import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.service.general.IInstitutionService;
 import lombok.RequiredArgsConstructor;
 
@@ -13,31 +14,18 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class InstitutionController {
 
-    private final IInstitutionService service;
+    private final IInstitutionService institutionSer;
 
-    @GetMapping
-    public ResponseEntity<List<InstitutionDTO>> findAll() {
-        return ResponseEntity.ok(service.findAll());
+    @PostMapping("/assign-logo")
+    public ResponseEntity<SpResponseDTO> assignLogoInstitution(@RequestBody InstitutionCUDDTO institution, @RequestPart MultipartFile file){
+        SpResponseDTO responseDTO = institutionSer.assignLogoInstitution(institution, file);
+        return ResponseEntity.ok(responseDTO);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<InstitutionDTO> findById(@PathVariable("id") Integer id) {
-        return ResponseEntity.ok(service.findById(id));
+    @PutMapping("/update-logo")
+    public ResponseEntity<SpResponseDTO> updateLogoInstitution(@RequestBody InstitutionCUDDTO institution, @RequestPart MultipartFile file){
+        SpResponseDTO responseDTO = institutionSer.updateLogoInstitution(institution, file);
+        return ResponseEntity.ok(responseDTO);
     }
 
-    @PostMapping
-    public ResponseEntity<InstitutionDTO> save(@RequestBody InstitutionDTO dto) {
-        return new ResponseEntity<>(service.save(dto), HttpStatus.CREATED);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<InstitutionDTO> update(@PathVariable("id") Integer id, @RequestBody InstitutionDTO dto) {
-        return ResponseEntity.ok(service.update(id, dto));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable("id") Integer id) {
-        service.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
 }

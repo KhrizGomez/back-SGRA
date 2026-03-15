@@ -3,6 +3,7 @@ package com.CLMTZ.Backend.model.general;
 import java.util.List;
 
 import com.CLMTZ.Backend.model.academic.AcademicArea;
+import com.CLMTZ.Backend.model.security.InstitutionLogo;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -12,6 +13,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -36,6 +38,9 @@ public class Institution {
 
     @Column(name = "estado",nullable = false, columnDefinition = "boolean default true")
     private Boolean state = true;
+
+    @OneToOne(mappedBy = "idinstitucion", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private InstitutionLogo institutionLogo;
 
     @OneToMany(mappedBy = "institutionId", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<AcademicArea> academicsAreas;

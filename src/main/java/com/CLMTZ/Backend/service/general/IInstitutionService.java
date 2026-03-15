@@ -1,13 +1,11 @@
 package com.CLMTZ.Backend.service.general;
 
-import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
 
-import com.CLMTZ.Backend.dto.general.InstitutionDTO;
+import com.CLMTZ.Backend.dto.general.InstitutionCUDDTO;
+import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 
 public interface IInstitutionService {
-    List<InstitutionDTO> findAll();
-    InstitutionDTO findById(Integer id);
-    InstitutionDTO save(InstitutionDTO dto);
-    InstitutionDTO update(Integer id, InstitutionDTO dto);
-    void deleteById(Integer id);
+    SpResponseDTO assignLogoInstitution(InstitutionCUDDTO institution,MultipartFile file);
+    SpResponseDTO updateLogoInstitution(InstitutionCUDDTO institution,MultipartFile file);
 }
