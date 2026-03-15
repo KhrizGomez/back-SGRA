@@ -147,6 +147,47 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
         return result;
     }
 
+    @Override
+    public List<String> getSessionResources(Integer userId, Integer scheduledId) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            throw new IllegalArgumentException("Sesión no encontrada o no pertenece a este docente");
+        }
+
+        String sql = "SELECT urlarchivorefuerzoprogramado " +
+                "FROM reforzamiento.tbrecursosrefuerzosprogramados " +
+                "WHERE idrefuerzoprogramado = :scheduledId " +
+                "AND urlarchivorefuerzoprogramado NOT LIKE 'virtual_link:%' " +
+                "ORDER BY idrecursorefuerzoprogramado DESC";
+
+        return getJdbcTemplate().queryForList(
+                sql,
+                new MapSqlParameterSource("scheduledId", scheduledId),
+                String.class
+        );
+    }
+
+    @Override
+    public List<String> getSessionRequestResources(Integer userId, Integer scheduledId) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            throw new IllegalArgumentException("Sesión no encontrada o no pertenece a este docente");
+        }
+
+        String sql = "SELECT DISTINCT rr.urlarchivosolicitudrefuerzo " +
+                "FROM reforzamiento.tbdetallesrefuerzosprogramadas d " +
+                "JOIN reforzamiento.tbrecursossolicitudesrefuerzos rr " +
+                "  ON rr.idsolicitudrefuerzo = d.idsolicitudrefuerzo " +
+                "WHERE d.idrefuerzoprogramado = :scheduledId " +
+                "ORDER BY rr.urlarchivosolicitudrefuerzo";
+
+        return getJdbcTemplate().queryForList(
+                sql,
+                new MapSqlParameterSource("scheduledId", scheduledId),
+                String.class
+        );
+    }
+
     /**
      * PUT bulk attendance update for a scheduled session (uses idrefuerzoprogramado).
      */
@@ -334,7 +375,13 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
      * RF17: Add a resource file URL to a scheduled reinforcement session.
      */
     @Override
-    public TeacherActionResponseDTO addResource(Integer scheduledId, String fileUrl) {
+    public TeacherActionResponseDTO addResource(Integer userId, Integer scheduledId, String fileUrl) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            return new TeacherActionResponseDTO(scheduledId, "ERROR",
+                    "Sesión no encontrada o no pertenece a este docente");
+        }
+
         String insertSql = "INSERT INTO reforzamiento.tbrecursosrefuerzosprogramados " +
                 "(idrefuerzoprogramado, urlarchivorefuerzoprogramado) " +
                 "VALUES (:scheduledId, :fileUrl)";
