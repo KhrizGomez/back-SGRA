@@ -41,8 +41,18 @@ public class TeacherSessionServiceImpl implements TeacherSessionService {
     }
 
     @Override
-    public TeacherActionResponseDTO setVirtualLink(Integer userId, Integer scheduledId, String url) {
-        return teacherSessionRepository.setVirtualLink(userId, scheduledId, url);
+    public TeacherActionResponseDTO addLink(Integer userId, Integer scheduledId, String url) {
+        return teacherSessionRepository.addLink(userId, scheduledId, url);
+    }
+
+    @Override
+    public void deleteLink(Integer userId, Integer scheduledId, String url) {
+        teacherSessionRepository.deleteLink(userId, scheduledId, url);
+    }
+
+    @Override
+    public List<String> getSessionLinks(Integer userId, Integer scheduledId) {
+        return teacherSessionRepository.getSessionLinks(userId, scheduledId);
     }
 
     @Override
@@ -67,5 +77,45 @@ public class TeacherSessionServiceImpl implements TeacherSessionService {
 
         return new TeacherActionResponseDTO(performedId, "RESULT_REGISTERED",
                 "Resultado de sesión registrado correctamente");
+    }
+
+    @Override
+    public List<String> getSessionRequestResources(Integer userId, Integer scheduledId) {
+        return teacherSessionRepository.getSessionRequestResources(userId, scheduledId);
+    }
+
+    @Override
+    public List<String> getSessionResources(Integer userId, Integer scheduledId) {
+        return teacherSessionRepository.getSessionResources(userId, scheduledId);
+    }
+
+    @Override
+    public TeacherActionResponseDTO uploadSessionResource(Integer userId, Integer scheduledId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("El archivo no puede estar vacío");
+        }
+
+        String fileUrl = storageService.uploadFiles(file);
+        return teacherSessionRepository.addResource(userId, scheduledId, fileUrl);
+    }
+
+    @Override
+    public void deleteSessionResource(Integer userId, Integer scheduledId, String fileUrl) {
+        teacherSessionRepository.deleteResource(userId, scheduledId, fileUrl);
+        
+        try {
+            // Intentar eliminar del Storage si es posible extraer el nombre
+            java.net.URI uri = new java.net.URI(fileUrl);
+            String path = uri.getPath();
+            String fileName = path.substring(path.lastIndexOf('/') + 1);
+            if (fileName != null && !fileName.isEmpty()) {
+                // Decodificar por si tiene espacios u otros caracteres
+                fileName = java.net.URLDecoder.decode(fileName, java.nio.charset.StandardCharsets.UTF_8);
+                storageService.deleteFile(fileName);
+            }
+        } catch (Exception e) {
+            // Solo loguear, lo importante es que se borró el registro de BD
+            System.err.println("Advertencia: No se pudo eliminar el archivo físico del storage: " + e.getMessage());
+        }
     }
 }

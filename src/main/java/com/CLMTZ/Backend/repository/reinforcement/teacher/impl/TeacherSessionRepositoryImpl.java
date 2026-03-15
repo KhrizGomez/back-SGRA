@@ -77,7 +77,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
                 " WHERE dd.idrefuerzoprogramado = rp.idrefuerzoprogramado) AS participant_count, " +
                 "(SELECT r.urlarchivorefuerzoprogramado FROM reforzamiento.tbrecursosrefuerzosprogramados r " +
                 " WHERE r.idrefuerzoprogramado = rp.idrefuerzoprogramado " +
-                " AND r.urlarchivorefuerzoprogramado LIKE 'virtual_link:%' LIMIT 1) AS virtual_link " +
+                " AND (r.urlarchivorefuerzoprogramado LIKE 'virtual_link:%' OR r.urlarchivorefuerzoprogramado LIKE 'link:%') LIMIT 1) AS virtual_link " +
                 "FROM reforzamiento.tbrefuerzosprogramados rp " +
                 "JOIN reforzamiento.tbestadosrefuerzosprogramados est " +
                 "  ON rp.idestadorefuerzoprogramado = est.idestadorefuerzoprogramado " +
@@ -114,8 +114,14 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
             item.setSessionType(rs.getString("session_type"));
             item.setParticipantCount(rs.getInt("participant_count"));
             String vl = rs.getString("virtual_link");
-            // Strip the "virtual_link:" prefix if present
-            item.setVirtualLink(vl != null ? vl.replace("virtual_link:", "").trim() : null);
+            // Strip the "virtual_link:" or "link:" prefix if present
+            if (vl != null) {
+                if (vl.startsWith("virtual_link:")) vl = vl.replace("virtual_link:", "");
+                else if (vl.startsWith("link:")) vl = vl.replace("link:", "");
+                item.setVirtualLink(vl.trim());
+            } else {
+                item.setVirtualLink(null);
+            }
             items.add(item);
         });
 
@@ -158,6 +164,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
                 "FROM reforzamiento.tbrecursosrefuerzosprogramados " +
                 "WHERE idrefuerzoprogramado = :scheduledId " +
                 "AND urlarchivorefuerzoprogramado NOT LIKE 'virtual_link:%' " +
+                "AND urlarchivorefuerzoprogramado NOT LIKE 'link:%' " +
                 "ORDER BY idrecursorefuerzoprogramado DESC";
 
         return getJdbcTemplate().queryForList(
@@ -188,6 +195,34 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
         );
     }
 
+    @Override
+    public List<String> getSessionLinks(Integer userId, Integer scheduledId) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            throw new IllegalArgumentException("Sesión no encontrada o no pertenece a este docente");
+        }
+
+        String sql = "SELECT urlarchivorefuerzoprogramado " +
+                "FROM reforzamiento.tbrecursosrefuerzosprogramados " +
+                "WHERE idrefuerzoprogramado = :scheduledId " +
+                "AND (urlarchivorefuerzoprogramado LIKE 'virtual_link:%' OR urlarchivorefuerzoprogramado LIKE 'link:%') " +
+                "ORDER BY idrecursorefuerzoprogramado DESC";
+
+        List<String> rawLinks = getJdbcTemplate().queryForList(
+                sql,
+                new MapSqlParameterSource("scheduledId", scheduledId),
+                String.class
+        );
+        
+        List<String> cleanLinks = new ArrayList<>();
+        for (String l : rawLinks) {
+            if (l.startsWith("virtual_link:")) cleanLinks.add(l.replace("virtual_link:", "").trim());
+            else if (l.startsWith("link:")) cleanLinks.add(l.replace("link:", "").trim());
+            else cleanLinks.add(l);
+        }
+        return cleanLinks;
+    }
+
     /**
      * PUT bulk attendance update for a scheduled session (uses idrefuerzoprogramado).
      */
@@ -211,84 +246,6 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
         }
         return new TeacherActionResponseDTO(scheduledId, "ATTENDANCE_UPDATED",
                 "Asistencia actualizada correctamente");
-    }
-
-    /**
-     * RF13: Register virtual meeting link for a scheduled session.
-     * Stored in tbrecursosrefuerzosprogramados as a URL resource.
-     */
-    @Override
-    @Transactional
-    public TeacherActionResponseDTO setVirtualLink(Integer userId, Integer scheduledId, String url) {
-        Integer teacherId = getTeacherId(userId);
-        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
-            return new TeacherActionResponseDTO(scheduledId, "ERROR",
-                    "Sesión no encontrada o no pertenece a este docente");
-        }
-
-        // Remove existing virtual link if any (identified by URL pattern containing "virtual_link:")
-        String deleteSql = "DELETE FROM reforzamiento.tbrecursosrefuerzosprogramados " +
-                "WHERE idrefuerzoprogramado = :scheduledId " +
-                "AND urlarchivorefuerzoprogramado LIKE 'virtual_link:%'";
-        getJdbcTemplate().update(deleteSql, new MapSqlParameterSource("scheduledId", scheduledId));
-
-        String insertSql = "INSERT INTO reforzamiento.tbrecursosrefuerzosprogramados " +
-                "(idrefuerzoprogramado, urlarchivorefuerzoprogramado) " +
-                "VALUES (:scheduledId, :url)";
-        MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("scheduledId", scheduledId);
-        params.addValue("url", "virtual_link:" + url);
-        getJdbcTemplate().update(insertSql, params);
-
-        return new TeacherActionResponseDTO(scheduledId, "LINK_REGISTERED",
-                "Enlace virtual registrado correctamente");
-    }
-
-    /**
-     * RF16: Mark attendance per participant for a performed session.
-     */
-    @Override
-    @Transactional
-    public TeacherActionResponseDTO markAttendance(Integer userId, Integer scheduledId, Integer performedId,
-                                                   List<AttendanceItemDTO> attendances) {
-        Integer teacherId = getTeacherId(userId);
-        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
-            return new TeacherActionResponseDTO(scheduledId, "ERROR",
-                    "Sesión no encontrada o no pertenece a este docente");
-        }
-
-        for (AttendanceItemDTO item : attendances) {
-            // Check if attendance record exists
-            String checkSql = "SELECT COUNT(*) FROM reforzamiento.tbasistenciasrefuerzos " +
-                    "WHERE idparticipante = :participantId AND idrefuerzorealizado = :performedId";
-            MapSqlParameterSource checkParams = new MapSqlParameterSource();
-            checkParams.addValue("participantId", item.getParticipantId());
-            checkParams.addValue("performedId", performedId);
-            Integer count = getJdbcTemplate().queryForObject(checkSql, checkParams, Integer.class);
-
-            if (count != null && count > 0) {
-                String updateSql = "UPDATE reforzamiento.tbasistenciasrefuerzos " +
-                        "SET asistencia = :attended " +
-                        "WHERE idparticipante = :participantId AND idrefuerzorealizado = :performedId";
-                MapSqlParameterSource updateParams = new MapSqlParameterSource();
-                updateParams.addValue("attended", item.getAttended());
-                updateParams.addValue("participantId", item.getParticipantId());
-                updateParams.addValue("performedId", performedId);
-                getJdbcTemplate().update(updateSql, updateParams);
-            } else {
-                String insertSql = "INSERT INTO reforzamiento.tbasistenciasrefuerzos " +
-                        "(asistencia, idparticipante, idrefuerzorealizado) " +
-                        "VALUES (:attended, :participantId, :performedId)";
-                MapSqlParameterSource insertParams = new MapSqlParameterSource();
-                insertParams.addValue("attended", item.getAttended());
-                insertParams.addValue("participantId", item.getParticipantId());
-                insertParams.addValue("performedId", performedId);
-                getJdbcTemplate().update(insertSql, insertParams);
-            }
-        }
-
-        return new TeacherActionResponseDTO(performedId, "ATTENDANCE_MARKED",
-                "Asistencia registrada correctamente");
     }
 
     /**
@@ -392,5 +349,121 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
 
         return new TeacherActionResponseDTO(scheduledId, "RESOURCE_ADDED",
                 "Recurso adjuntado correctamente");
+    }
+
+    @Override
+    public void deleteResource(Integer userId, Integer scheduledId, String fileUrl) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            throw new IllegalArgumentException("Sesión no encontrada o no pertenece a este docente");
+        }
+
+        String sql = "DELETE FROM reforzamiento.tbrecursosrefuerzosprogramados " +
+                "WHERE idrefuerzoprogramado = :scheduledId AND urlarchivorefuerzoprogramado = :fileUrl";
+
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("scheduledId", scheduledId);
+        params.addValue("fileUrl", fileUrl);
+
+        int rows = getJdbcTemplate().update(sql, params);
+        if (rows == 0) {
+            throw new IllegalArgumentException("El recurso no existe o no se pudo eliminar");
+        }
+    }
+
+    /**
+     * RF13: Register link for a scheduled session (CRUD).
+     * Stored in tbrecursosrefuerzosprogramados with prefix 'link:'.
+     */
+    @Override
+    @Transactional
+    public TeacherActionResponseDTO addLink(Integer userId, Integer scheduledId, String url) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            return new TeacherActionResponseDTO(scheduledId, "ERROR",
+                    "Sesión no encontrada o no pertenece a este docente");
+        }
+
+        String insertSql = "INSERT INTO reforzamiento.tbrecursosrefuerzosprogramados " +
+                "(idrefuerzoprogramado, urlarchivorefuerzoprogramado) " +
+                "VALUES (:scheduledId, :url)";
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("scheduledId", scheduledId);
+        params.addValue("url", "link:" + url);
+        getJdbcTemplate().update(insertSql, params);
+
+        return new TeacherActionResponseDTO(scheduledId, "LINK_ADDED",
+                "Enlace agregado correctamente");
+    }
+
+    @Override
+    @Transactional
+    public void deleteLink(Integer userId, Integer scheduledId, String url) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            throw new IllegalArgumentException("Sesión no encontrada o no pertenece a este docente");
+        }
+
+        // Try deleting with both prefixes to be safe and backward compatible
+        String sql = "DELETE FROM reforzamiento.tbrecursosrefuerzosprogramados " +
+                "WHERE idrefuerzoprogramado = :scheduledId " +
+                "AND (urlarchivorefuerzoprogramado = :linkUrl OR urlarchivorefuerzoprogramado = :virtualLinkUrl)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("scheduledId", scheduledId);
+        params.addValue("linkUrl", "link:" + url);
+        params.addValue("virtualLinkUrl", "virtual_link:" + url);
+
+        int rows = getJdbcTemplate().update(sql, params);
+        if (rows == 0) {
+            throw new IllegalArgumentException("El enlace no existe o no se pudo eliminar");
+        }
+    }
+
+    /**
+     * RF16: Mark attendance per participant for a performed session.
+     */
+    @Override
+    @Transactional
+    public TeacherActionResponseDTO markAttendance(Integer userId, Integer scheduledId, Integer performedId,
+                                                   List<AttendanceItemDTO> attendances) {
+        Integer teacherId = getTeacherId(userId);
+        if (!validateTeacherOwnsSession(teacherId, scheduledId)) {
+            return new TeacherActionResponseDTO(scheduledId, "ERROR",
+                    "Sesión no encontrada o no pertenece a este docente");
+        }
+
+        for (AttendanceItemDTO item : attendances) {
+            // Check if attendance record exists
+            String checkSql = "SELECT COUNT(*) FROM reforzamiento.tbasistenciasrefuerzos " +
+                    "WHERE idparticipante = :participantId AND idrefuerzorealizado = :performedId";
+            MapSqlParameterSource checkParams = new MapSqlParameterSource();
+            checkParams.addValue("participantId", item.getParticipantId());
+            checkParams.addValue("performedId", performedId);
+            Integer count = getJdbcTemplate().queryForObject(checkSql, checkParams, Integer.class);
+
+            if (count != null && count > 0) {
+                String updateSql = "UPDATE reforzamiento.tbasistenciasrefuerzos " +
+                        "SET asistencia = :attended " +
+                        "WHERE idparticipante = :participantId AND idrefuerzorealizado = :performedId";
+                MapSqlParameterSource updateParams = new MapSqlParameterSource();
+                updateParams.addValue("attended", item.getAttended());
+                updateParams.addValue("participantId", item.getParticipantId());
+                updateParams.addValue("performedId", performedId);
+                getJdbcTemplate().update(updateSql, updateParams);
+            } else {
+                String insertSql = "INSERT INTO reforzamiento.tbasistenciasrefuerzos " +
+                        "(asistencia, idparticipante, idrefuerzorealizado) " +
+                        "VALUES (:attended, :participantId, :performedId)";
+                MapSqlParameterSource insertParams = new MapSqlParameterSource();
+                insertParams.addValue("attended", item.getAttended());
+                insertParams.addValue("participantId", item.getParticipantId());
+                insertParams.addValue("performedId", performedId);
+                getJdbcTemplate().update(insertSql, insertParams);
+            }
+        }
+
+        return new TeacherActionResponseDTO(performedId, "ATTENDANCE_MARKED",
+                "Asistencia registrada correctamente");
     }
 }
