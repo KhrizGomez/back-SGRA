@@ -11,13 +11,10 @@ import java.util.List;
 public interface TeacherSessionService {
     List<TeacherActiveSessionItemDTO> getActiveSessions(Integer userId);
     List<ParticipantAttendanceDTO> getSessionAttendance(Integer userId, Integer scheduledId);
-    List<String> getSessionResources(Integer userId, Integer scheduledId);
-    List<String> getSessionRequestResources(Integer userId, Integer scheduledId);
     TeacherActionResponseDTO updateSessionAttendance(Integer userId, Integer scheduledId, List<AttendanceItemDTO> attendances);
     TeacherActionResponseDTO setVirtualLink(Integer userId, Integer scheduledId, String url);
     TeacherActionResponseDTO markAttendance(Integer userId, Integer scheduledId, Integer performedId,
                                             List<AttendanceItemDTO> attendances);
     TeacherActionResponseDTO registerResult(Integer userId, Integer scheduledId, String observation,
                                             String duration, List<MultipartFile> files);
-    TeacherActionResponseDTO addGeneratedResource(Integer userId, Integer scheduledId, String resourceUrl);
 }

@@ -35,16 +35,6 @@ public class TeacherSessionServiceImpl implements TeacherSessionService {
     }
 
     @Override
-    public List<String> getSessionResources(Integer userId, Integer scheduledId) {
-        return teacherSessionRepository.getSessionResources(userId, scheduledId);
-    }
-
-    @Override
-    public List<String> getSessionRequestResources(Integer userId, Integer scheduledId) {
-        return teacherSessionRepository.getSessionRequestResources(userId, scheduledId);
-    }
-
-    @Override
     public TeacherActionResponseDTO updateSessionAttendance(Integer userId, Integer scheduledId,
                                                             List<AttendanceItemDTO> attendances) {
         return teacherSessionRepository.updateSessionAttendance(userId, scheduledId, attendances);
@@ -77,10 +67,5 @@ public class TeacherSessionServiceImpl implements TeacherSessionService {
 
         return new TeacherActionResponseDTO(performedId, "RESULT_REGISTERED",
                 "Resultado de sesión registrado correctamente");
-    }
-
-    @Override
-    public TeacherActionResponseDTO addGeneratedResource(Integer userId, Integer scheduledId, String resourceUrl) {
-        return teacherSessionRepository.addResource(userId, scheduledId, resourceUrl);
     }
 }
