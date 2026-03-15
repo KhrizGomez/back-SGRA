@@ -80,7 +80,7 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
     public void auditLogout(Integer auditAccesId, String action){
         String sql = "Call seguridad.sp_up_auditoriaacceso(?, ?)";
 
-        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getDefaultJdbcTemplate().getJdbcTemplate();
 
         jdbcTemplate.execute(
             (Connection con) -> {

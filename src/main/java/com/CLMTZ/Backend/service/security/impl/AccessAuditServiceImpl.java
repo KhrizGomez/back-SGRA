@@ -1,5 +1,7 @@
 package com.CLMTZ.Backend.service.security.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class AccessAuditServiceImpl implements IAccessAuditService{
+
+    private static final Logger log = LoggerFactory.getLogger(AccessAuditServiceImpl.class);
 
     private final IAccessAuditCustomRepository accessAuditCustomRepo;
     private final CustomSessionRegistry customSessionReg;
@@ -74,7 +78,9 @@ public class AccessAuditServiceImpl implements IAccessAuditService{
     public void auditLogOut(Integer auditAccessId){
         try {
             accessAuditCustomRepo.auditLogout(auditAccessId, "Cierre de sesion");
-        } catch (Exception e) { }
+        } catch (Exception e) {
+            log.error("Error al registrar auditoría de cierre de sesión para auditAccessId={}: {}", auditAccessId, e.getMessage());
+        }
     }
 
     private String extractBrowser(String userAgent) {
