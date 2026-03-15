@@ -2,6 +2,7 @@ package com.CLMTZ.Backend.controller.general;
 
 import java.util.List;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,14 +26,14 @@ public class InstitutionController {
         return ResponseEntity.ok(list);
     }
 
-    @PostMapping("/assign-logo")
-    public ResponseEntity<SpResponseDTO> assignLogoInstitution(@RequestBody InstitutionCUDDTO institution, @RequestPart MultipartFile file){
+    @PostMapping(value = "/assign-logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<SpResponseDTO> assignLogoInstitution(@RequestPart("institution") InstitutionCUDDTO institution, @RequestPart("file") MultipartFile file){
         SpResponseDTO responseDTO = institutionSer.assignLogoInstitution(institution, file);
         return ResponseEntity.ok(responseDTO);
     }
 
-    @PutMapping("/update-logo")
-    public ResponseEntity<SpResponseDTO> updateLogoInstitution(@RequestBody InstitutionCUDDTO institution, @RequestPart MultipartFile file){
+    @PutMapping(value = "/update-logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<SpResponseDTO> updateLogoInstitution(@RequestPart("institution") InstitutionCUDDTO institution, @RequestPart("file") MultipartFile file){
         SpResponseDTO responseDTO = institutionSer.updateLogoInstitution(institution, file);
         return ResponseEntity.ok(responseDTO);
     }
