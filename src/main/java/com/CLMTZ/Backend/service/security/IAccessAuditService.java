@@ -13,4 +13,6 @@ public interface IAccessAuditService {
     List<AccessAuditResponseDTO> listAccessAudit();
 
     Integer auditAccess(HttpServletRequest request, Integer userId, String action, String session);
+
+    void auditLogOut(Integer auditAccessId);
 }

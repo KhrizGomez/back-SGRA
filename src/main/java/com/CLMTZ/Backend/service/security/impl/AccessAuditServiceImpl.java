@@ -40,7 +40,7 @@ public class AccessAuditServiceImpl implements IAccessAuditService{
             String session = accessAuditCustomRepo.sessionId(auditAccessId);
             boolean success = customSessionReg.forceInvalidateSession(session);
             if (success) {
-                accessAuditCustomRepo.auditForceLogout(auditAccessId, session);
+                accessAuditCustomRepo.auditLogout(auditAccessId, "Cierre de sesion forzado");
                 success = true;
             }
             System.out.println("auditAccessId: " + auditAccessId+ " session: " + session + " success: " + success);
@@ -67,6 +67,14 @@ public class AccessAuditServiceImpl implements IAccessAuditService{
         } catch (Exception e) { 
             return null;
         }
+    }
+
+    @Override
+    @Transactional
+    public void auditLogOut(Integer auditAccessId){
+        try {
+            accessAuditCustomRepo.auditLogout(auditAccessId, "Cierre de sesion");
+        } catch (Exception e) { }
     }
 
     private String extractBrowser(String userAgent) {

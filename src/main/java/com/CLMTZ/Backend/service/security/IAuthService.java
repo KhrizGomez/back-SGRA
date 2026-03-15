@@ -16,7 +16,7 @@ public interface IAuthService {
 
     LoginResponseDTO getCurrentUser(HttpSession session);
 
-    void logout(HttpSession session, HttpServletRequest requestSer);
+    void logout(HttpSession session);
 
     UserContext getUserContext(HttpSession session);
 

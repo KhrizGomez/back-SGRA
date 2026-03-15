@@ -180,10 +180,10 @@ public class AuthServiceImpl implements IAuthService {
     }
 
     @Override
-    public void logout(HttpSession session, HttpServletRequest requestSer) {
+    public void logout(HttpSession session) {
         UserContext ctx = getUserContext(session);
         if (ctx != null) {
-            accessAuditSer.auditAccess(requestSer, ctx.getUserId(), "Cierre sesion", session.getId());
+            accessAuditSer.auditLogOut(ctx.getIdAuditoriaAcceso());
             log.info("Logout para usuario: {}", ctx.getUsername());
             // Liberar pool de conexiones del usuario
             if (ctx.getDbUser() != null) { 

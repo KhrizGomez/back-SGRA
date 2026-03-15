@@ -39,7 +39,7 @@ public class Institution {
     @Column(name = "estado",nullable = false, columnDefinition = "boolean default true")
     private Boolean state = true;
 
-    @OneToOne(mappedBy = "idinstitucion", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @OneToOne(mappedBy = "institutionId", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private InstitutionLogo institutionLogo;
 
     @OneToMany(mappedBy = "institutionId", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)

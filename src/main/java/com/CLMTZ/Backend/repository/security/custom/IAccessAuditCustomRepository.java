@@ -13,7 +13,7 @@ public interface IAccessAuditCustomRepository {
 
     Integer auditAccess(Integer userId, String addressIp, String browser, String action, String so, String session);
 
-    void auditForceLogout(Integer auditAccesId, String session);
+    void auditLogout(Integer auditAccesId, String action);
 
     String sessionId(Integer auditAccessId);
 }
