@@ -1,8 +1,10 @@
 package com.CLMTZ.Backend.controller.security;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.CLMTZ.Backend.dto.security.Response.AccessAuditResponseDTO;
+import com.CLMTZ.Backend.dto.security.Response.DataAuditResponseDTO;
 import com.CLMTZ.Backend.service.security.IAccessAuditService;
+import com.CLMTZ.Backend.service.security.IDataAuditService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class AuditController {
 
     private final IAccessAuditService accessAuditSer;
+    private final IDataAuditService dataAuditSer;
     
     @GetMapping("/list-access-audit")
     public ResponseEntity<List<AccessAuditResponseDTO>> listAccessAudit(){
@@ -36,6 +41,13 @@ public class AuditController {
         else {
             return ResponseEntity.ok(Map.of("message", "Sesión invalidada fallida"));
         }
+    }
+
+    @GetMapping("/list-data-audit")
+    public ResponseEntity<List<DataAuditResponseDTO>> listDataAudit(
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        List<DataAuditResponseDTO> dataAuditList = dataAuditSer.listDataAudit(date);
+        return ResponseEntity.ok(dataAuditList);
     }
 
 }

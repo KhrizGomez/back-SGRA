@@ -3,11 +3,14 @@ package com.CLMTZ.Backend.repository.security.custom.impl;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.Types;
+import java.util.List;
 
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
+import com.CLMTZ.Backend.dto.general.InstitutionLogoResponseDTO;
 import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
 import com.CLMTZ.Backend.repository.security.custom.IInstitutionLogoCustomRepository;
 
@@ -18,6 +21,14 @@ import lombok.RequiredArgsConstructor;
 public class InstitutionLogoCustomRepositoryImpl implements IInstitutionLogoCustomRepository{
 
     private final DynamicDataSourceService dynamicDataSourceService;
+
+    @Override
+    public List<InstitutionLogoResponseDTO> listInstitutionLogo() {
+
+        String query = "Select * from seguridad.fn_sl_logoinstitucion()";
+
+        return dynamicDataSourceService.getJdbcTemplate().query(query, new BeanPropertyRowMapper<>(InstitutionLogoResponseDTO.class));
+    }
 
     @Override
     public SpResponseDTO assignLogoInstitution (String jsonLogoInstitution){
