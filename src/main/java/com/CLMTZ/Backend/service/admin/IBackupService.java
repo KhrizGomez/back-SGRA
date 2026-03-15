@@ -1,6 +1,7 @@
 package com.CLMTZ.Backend.service.admin;
 
 import com.CLMTZ.Backend.dto.admin.BackupHistoryItemDTO;
+import com.CLMTZ.Backend.dto.admin.BackupLocalConfigDTO;
 import com.CLMTZ.Backend.dto.admin.BackupResultDTO;
 import com.CLMTZ.Backend.dto.admin.BackupScheduleEntryDTO;
 
@@ -13,6 +14,7 @@ public interface IBackupService {
     List<BackupHistoryItemDTO> listBackups();
     String validatePgDump();
     String getDownloadUrl(String fileName);
+    void streamBackup(String fileName, java.io.OutputStream out) throws Exception;
     void deleteBackup(String fileName);
 
     // Programaciones automáticas
@@ -20,4 +22,8 @@ public interface IBackupService {
     BackupScheduleEntryDTO createSchedule(BackupScheduleEntryDTO dto);
     BackupScheduleEntryDTO updateSchedule(Integer id, BackupScheduleEntryDTO dto);
     void deleteSchedule(Integer id);
+
+    // Configuración ruta local
+    BackupLocalConfigDTO getLocalConfig();
+    BackupLocalConfigDTO saveLocalConfig(String ruta);
 }
