@@ -12,16 +12,16 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "tbschedulesbackup", schema = "general")
+@Table(name = "tbprogramacionrespaldo", schema = "general")
 public class BackupScheduleEntry {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
+    @Column(name = "idprogramacionrespaldo")
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "idusuario", foreignKey = @ForeignKey(name = "fk_schedulesbackup_usuario"))
+    @JoinColumn(name = "idusuario", foreignKey = @ForeignKey(name = "fk_programacionrespaldo_usuario"))
     private User usuario;
 
     @Column(name = "habilitado", nullable = false)
