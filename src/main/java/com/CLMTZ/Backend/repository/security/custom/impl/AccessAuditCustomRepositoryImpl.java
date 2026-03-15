@@ -35,9 +35,10 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
             dto.setAdireccionip(rs.getString(3));
             dto.setAnavegador(rs.getString(4));
             dto.setAfechaacceso(rs.getObject(5, LocalDateTime.class));
-            dto.setAaccion(rs.getString(6));
-            dto.setAso(rs.getString(7));
-            dto.setAsesion(rs.getString(8));
+            dto.setAfechacierre(rs.getObject(6, LocalDateTime.class));
+            dto.setAaccion(rs.getString(7));
+            dto.setAso(rs.getString(8));
+            dto.setAsesion(rs.getString(9));
 
             return dto;
         });
@@ -76,18 +77,8 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
     }
 
     @Override
-    public String sessionId(Integer auditAccessId){
-
-        String query = "Select seguridad.fn_vltext_sesion(:p_idauditoriaacceso)";
-
-        MapSqlParameterSource params = new MapSqlParameterSource().addValue("p_idauditoriaacceso", auditAccessId);
-
-        return dynamicDataSourceService.getJdbcTemplate().queryForObject(query, params, String.class);
-    }
-
-    @Override
-    public void auditForceLogout(Integer auditAccesId, String session){
-        String sql = "Call seguridad.sp_in_auditcierreforzado(?, ?)";
+    public void auditLogout(Integer auditAccesId, String action){
+        String sql = "Call seguridad.sp_up_auditoriaacceso(?, ?)";
 
         JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
@@ -96,11 +87,21 @@ public class AccessAuditCustomRepositoryImpl implements IAccessAuditCustomReposi
                 CallableStatement cs = con.prepareCall(sql);
 
                 cs.setInt(1, auditAccesId);
-                cs.setString(2, session);
+                cs.setString(2, action);
 
                 cs.execute();
 
                 return null;
             });
+    }
+
+    @Override
+    public String sessionId(Integer auditAccessId){
+
+        String query = "Select seguridad.fn_vltext_sesion(:p_idauditoriaacceso)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("p_idauditoriaacceso", auditAccessId);
+
+        return dynamicDataSourceService.getJdbcTemplate().queryForObject(query, params, String.class);
     }
 }

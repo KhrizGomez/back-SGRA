@@ -1,41 +1,76 @@
 package com.CLMTZ.Backend.service.general.impl;
 
 import java.util.List;
-import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
-import com.CLMTZ.Backend.dto.general.InstitutionDTO;
-import com.CLMTZ.Backend.model.general.Institution;
-import com.CLMTZ.Backend.repository.general.IInstitutionRepository;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.CLMTZ.Backend.dto.general.InstitutionCUDDTO;
+import com.CLMTZ.Backend.dto.general.InstitutionLogoResponseDTO;
+import com.CLMTZ.Backend.dto.security.Response.SpResponseDTO;
+import com.CLMTZ.Backend.repository.security.custom.IInstitutionLogoCustomRepository;
+import com.CLMTZ.Backend.service.external.IStorageService;
 import com.CLMTZ.Backend.service.general.IInstitutionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class InstitutionServiceImpl implements IInstitutionService {
 
-    private final IInstitutionRepository repository;
+    private final IStorageService storageService;
+    private final IInstitutionLogoCustomRepository institutionLogoCustomRepo;
+    private final ObjectMapper objectMapper;
 
     @Override
-    public List<InstitutionDTO> findAll() { return repository.findAll().stream().map(this::toDTO).collect(Collectors.toList()); }
-
-    @Override
-    public InstitutionDTO findById(Integer id) { return repository.findById(id).map(this::toDTO).orElseThrow(() -> new RuntimeException("Institution not found with id: " + id)); }
-
-    @Override
-    public InstitutionDTO save(InstitutionDTO dto) {
-        Institution e = new Institution(); e.setNameInstitution(dto.getNameInstitution()); e.setState(dto.getState() != null ? dto.getState() : true);
-        return toDTO(repository.save(e));
+    @Transactional(readOnly = true)
+    public List<InstitutionLogoResponseDTO> listInstitutionLogo() {
+        try {
+            return institutionLogoCustomRepo.listInstitutionLogo();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al listar los logos de instituciones: " + e.getMessage());
+        }
     }
 
     @Override
-    public InstitutionDTO update(Integer id, InstitutionDTO dto) {
-        Institution e = repository.findById(id).orElseThrow(() -> new RuntimeException("Institution not found with id: " + id));
-        e.setNameInstitution(dto.getNameInstitution()); e.setState(dto.getState());
-        return toDTO(repository.save(e));
+    @Transactional
+    public SpResponseDTO assignLogoInstitution(InstitutionCUDDTO institution,MultipartFile file){
+
+        try {
+            if(file == null || file.isEmpty()) return new SpResponseDTO("Logo no procesado", false);
+        else {
+            String fileUrl =  storageService.uploadFiles(file);
+            institution.setLurllogo(fileUrl);
+
+            String jsonInstitution = objectMapper.writeValueAsString(institution);
+
+            return institutionLogoCustomRepo.assignLogoInstitution(jsonInstitution);
+        }
+        } catch (Exception e) {
+            return new SpResponseDTO("Error al registrar la asignacion del logo a la institucion", false);
+        }
+        
     }
 
     @Override
-    public void deleteById(Integer id) { repository.deleteById(id); }
+    @Transactional
+    public SpResponseDTO updateLogoInstitution(InstitutionCUDDTO institution,MultipartFile file){
 
-    private InstitutionDTO toDTO(Institution e) { InstitutionDTO d = new InstitutionDTO(); d.setInstitutionId(e.getInstitutionId()); d.setNameInstitution(e.getNameInstitution()); d.setState(e.getState()); return d; }
+        try {
+            if(file == null || file.isEmpty()) return new SpResponseDTO("Logo no procesado", false);
+        else {
+            String fileUrl =  storageService.uploadFiles(file);
+            institution.setLurllogo(fileUrl);
+
+            String jsonInstitution = objectMapper.writeValueAsString(institution);
+
+            return institutionLogoCustomRepo.updateLogoInstitution(jsonInstitution);
+        }
+        } catch (Exception e) {
+            return new SpResponseDTO("Error al actualizar el logo de la institucion", false);
+        }
+        
+    }
 }

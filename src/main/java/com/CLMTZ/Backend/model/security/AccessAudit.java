@@ -45,6 +45,9 @@ public class AccessAudit {
     @Column(name = "fechaacceso", nullable = false, columnDefinition = "timestamp default CURRENT_TIMESTAMP")
     private LocalDateTime accessDate;
 
+    @Column(name = "fechacierre", nullable = false, columnDefinition = "timestamp default CURRENT_TIMESTAMP")
+    private LocalDateTime logOutDate;
+
     @Column(name = "so", length = 15, nullable = false)
     private String sO;
 

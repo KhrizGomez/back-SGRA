@@ -50,8 +50,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session, HttpServletRequest requestSer) {  
-        authService.logout(session, requestSer);
+    public ResponseEntity<?> logout(HttpSession session) {  
+        authService.logout(session);
         return ResponseEntity.ok(Map.of("message", "Sesion cerrada correctamente"));
     }
 

@@ -35,6 +35,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -121,24 +122,37 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         if (!blob.exists()) return fail("Archivo no encontrado: " + fileName, executedBy);
 
         Path tempFile = null;
+        boolean schemasRenombrados = false;
         try {
             tempFile = Files.createTempFile("sgra_restore_", ".backup");
-            // openInputStream() usa IO bloqueante, evita el error de ByteBuffer de Netty
-            try (java.io.InputStream blobStream = blob.openInputStream()) {
-                Files.copy(blobStream, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
 
-            // Limpia todos los schemas de usuario con CASCADE antes de restaurar.
-            // Esto elimina todas las dependencias (FKs, índices, etc.) sin importar
-            // si existen o no en el backup, evitando errores de "depende de ella".
-            dropUserSchemas();
+            // Descarga desde Azure y rename de schemas en paralelo (son independientes entre sí)
+            final Path finalTempFile = tempFile;
+            CompletableFuture<Void> descarga = CompletableFuture.runAsync(() -> {
+                try (java.io.InputStream blobStream = blob.openInputStream()) {
+                    Files.copy(blobStream, finalTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error descargando backup desde Azure: " + e.getMessage(), e);
+                }
+            });
+
+            // Renombra schemas a _bak mientras descarga (permite rollback si falla el restore)
+            renombrarSchemas();
+            schemasRenombrados = true;
+
+            // Espera que termine la descarga antes de lanzar pg_restore
+            descarga.join();
 
             DbInfo db = parseUrl(datasourceUrl);
+            int jobs = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
+            log.info("Iniciando pg_restore con {} workers paralelos.", jobs);
+
             ProcessBuilder pb = new ProcessBuilder(
                     pgRestore,
                     "-h", db.host(), "-p", String.valueOf(db.port()),
                     "-U", backupDbUser, "-d", db.name(),
-                    "--single-transaction", "--no-owner",
+                    "--no-owner", "--disable-triggers",
+                    "-j", String.valueOf(jobs),
                     "-F", "c",
                     tempFile.toAbsolutePath().toString()
             );
@@ -150,23 +164,27 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
             String  output   = new String(process.getInputStream().readAllBytes());
             boolean finished = process.waitFor(30, TimeUnit.MINUTES);
 
-            if (!finished) { process.destroyForcibly(); return fail("pg_restore superó el tiempo límite.", executedBy); }
+            if (!finished) {
+                process.destroyForcibly();
+                rollbackSchemas();
+                return fail("pg_restore superó el tiempo límite.", executedBy);
+            }
             if (process.exitValue() != 0) {
                 log.error("pg_restore falló [{}]: {}", process.exitValue(), output);
+                rollbackSchemas();
                 return fail("pg_restore falló: " + output, executedBy);
             }
 
+            // Restore exitoso → elimina los schemas _bak que ya no se necesitan
+            eliminarSchemasBak();
             log.info("Restauración '{}' completada por '{}'.", fileName, executedBy);
 
-            // Limpia el caché de entidades de Hibernate para que todo se re-lea desde la BD restaurada
             entityManagerFactory.getCache().evictAll();
-
-            // Marca todas las conexiones del pool para reemplazo (se recrean con la BD restaurada)
             if (dataSource instanceof HikariDataSource hikari) {
                 hikari.getHikariPoolMXBean().softEvictConnections();
             }
-
             log.info("Caché de Hibernate y pool de conexiones reseteados post-restauración.");
+
             return new BackupResultDTO(true,
                     "Base de datos restaurada exitosamente desde " + fileName,
                     fileName, null, null, executedBy,
@@ -174,6 +192,11 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
         } catch (Exception e) {
             log.error("Error durante restauración: {}", e.getMessage(), e);
+            if (schemasRenombrados) {
+                try { rollbackSchemas(); } catch (Exception re) {
+                    log.error("Error en rollback de schemas: {}", re.getMessage());
+                }
+            }
             return fail("Error inesperado durante la restauración: " + e.getMessage(), executedBy);
         } finally {
             if (tempFile != null) try { Files.deleteIfExists(tempFile); } catch (Exception ignored) { }
@@ -397,11 +420,10 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     }
 
     /**
-     * Elimina todos los schemas de usuario con CASCADE (excluye pg_*, information_schema y public).
-     * NO los recrea — pg_restore los crea desde el backup.
-     * El DROP CASCADE elimina tablas, FKs e índices sin importar dependencias.
+     * Renombra todos los schemas de usuario a {nombre}_bak antes del restore.
+     * Permite rollback: si pg_restore falla, se pueden restaurar los schemas originales.
      */
-    private void dropUserSchemas() throws Exception {
+    private void renombrarSchemas() throws Exception {
         String sql = """
                 DO $$
                 DECLARE r RECORD;
@@ -410,6 +432,66 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
                         SELECT nspname FROM pg_namespace
                         WHERE nspname NOT LIKE 'pg_%'
                           AND nspname NOT IN ('information_schema', 'public')
+                          AND nspname NOT LIKE '%_bak'
+                    LOOP
+                        EXECUTE 'ALTER SCHEMA ' || quote_ident(r.nspname)
+                             || ' RENAME TO ' || quote_ident(r.nspname || '_bak');
+                    END LOOP;
+                END $$;
+                """;
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.Statement  stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            log.info("Schemas renombrados a _bak — pg_restore los recreará desde el backup.");
+        }
+    }
+
+    /**
+     * Rollback: elimina los schemas parciales del restore fallido
+     * y renombra los _bak de vuelta a sus nombres originales.
+     */
+    private void rollbackSchemas() throws Exception {
+        String sql = """
+                DO $$
+                DECLARE r RECORD;
+                BEGIN
+                    -- Elimina schemas parciales del restore fallido
+                    FOR r IN
+                        SELECT nspname FROM pg_namespace
+                        WHERE nspname NOT LIKE 'pg_%'
+                          AND nspname NOT IN ('information_schema', 'public')
+                          AND nspname NOT LIKE '%_bak'
+                    LOOP
+                        EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.nspname) || ' CASCADE';
+                    END LOOP;
+                    -- Renombra _bak de vuelta a los nombres originales
+                    FOR r IN
+                        SELECT nspname FROM pg_namespace
+                        WHERE nspname LIKE '%_bak'
+                    LOOP
+                        EXECUTE 'ALTER SCHEMA ' || quote_ident(r.nspname)
+                             || ' RENAME TO ' || quote_ident(replace(r.nspname, '_bak', ''));
+                    END LOOP;
+                END $$;
+                """;
+        try (java.sql.Connection conn = dataSource.getConnection();
+             java.sql.Statement  stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            log.info("Rollback de schemas completado — BD restaurada al estado anterior.");
+        }
+    }
+
+    /**
+     * Tras restore exitoso: elimina los schemas _bak que ya no se necesitan.
+     */
+    private void eliminarSchemasBak() throws Exception {
+        String sql = """
+                DO $$
+                DECLARE r RECORD;
+                BEGIN
+                    FOR r IN
+                        SELECT nspname FROM pg_namespace
+                        WHERE nspname LIKE '%_bak'
                     LOOP
                         EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.nspname) || ' CASCADE';
                     END LOOP;
@@ -418,7 +500,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         try (java.sql.Connection conn = dataSource.getConnection();
              java.sql.Statement  stmt = conn.createStatement()) {
             stmt.execute(sql);
-            log.info("Schemas de usuario eliminados — pg_restore los recreará desde el backup.");
+            log.info("Schemas _bak eliminados tras restauración exitosa.");
         }
     }
 

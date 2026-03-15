@@ -1,6 +1,7 @@
 package com.CLMTZ.Backend.dto.security.Response;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
@@ -12,14 +13,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class AccessAuditResponseDTO {
-    private Integer aidauditoriaacceso;
+public class DataAuditResponseDTO {
     private String ausuario;
-    private String adireccionip;
-    private String anavegador;
     private LocalDateTime afechaacceso;
     private LocalDateTime afechacierre;
     private String aaccion;
-    private String aso;
-    private String asesion;
+    private String atablaafectada;
+    private Integer aidregistro;
+    private LocalDateTime afechahoraaccion;
+    private Map<String, Object> adatosnuevos;
+    private Map<String, Object> adatosantiguos;
 }
