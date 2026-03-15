@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -85,8 +86,12 @@ public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
             String jsonData = mapper.writeValueAsString(registrationDTOs);
 
             System.out.println("[UPLOAD-REGISTRATIONS] Enviando " + registrationDTOs.size() + " registros al SP como JSON");
+                        System.out.println(jsonData); 
             String resultadoSP = ejecutarCargaDetalleMatriculaSP(jsonData);
             report.add(resultadoSP);
+
+            // Actualizar paralelo de registros existentes en caso de cambio
+            actualizarParalelosExistentes(registrationDTOs, report);
 
         } catch (Exception e) {
             report.add("ERROR GENERAL: " + e.getMessage());
@@ -96,6 +101,56 @@ public class EnrollmentDetailServiceImpl implements IEnrollmentDetailService {
         // report.add(0, "RESUMEN: " + registrationDTOs.size() + " registros procesados → " + exitosos + " exitosos, " + errores + " con errores/advertencias.");
 
         return report;
+    }
+
+    // --- ACTUALIZACIÓN DE PARALELO ---
+
+    /**
+     * Para cada detalle de matrícula ya existente, actualiza el paralelo si cambió.
+     * Se ejecuta después del SP (que hizo INSERT para nuevos registros).
+     * El SP puede omitir actualizar el paralelo en registros preexistentes; este método lo cubre.
+     */
+    private void actualizarParalelosExistentes(List<EnrollmentDetailLoadDTO> dtos, List<String> report) {
+        for (EnrollmentDetailLoadDTO dto : dtos) {
+            if (dto.getIdentificador() == null || dto.getIdentificador().isBlank()) continue;
+            if (dto.getAsignatura() == null || dto.getAsignatura().isBlank()) continue;
+            if (dto.getParalelo() == null || dto.getParalelo().isBlank()) continue;
+
+            try {
+                Optional<EnrollmentDetail> detalleOpt =
+                        repository.findByEstudianteYAsignaturaEnPeriodoActivo(
+                                dto.getIdentificador().trim(), dto.getAsignatura().trim());
+
+                if (detalleOpt.isEmpty()) continue; // nuevo registro; ya fue creado por el SP
+
+                EnrollmentDetail detalle = detalleOpt.get();
+                String seccionActual = detalle.getParallelId() != null
+                        ? detalle.getParallelId().getSection().trim() : "";
+                String seccionNueva = dto.getParalelo().trim();
+
+                if (seccionActual.equalsIgnoreCase(seccionNueva)) continue; // sin cambio
+
+                Optional<com.CLMTZ.Backend.model.academic.Parallel> paraleloOpt =
+                        parallelRepository.findBySectionIgnoreCase(seccionNueva);
+
+                if (paraleloOpt.isEmpty()) {
+                    log.warn("Paralelo '{}' no encontrado en BD para actualizar detalle de matrícula de '{}'",
+                            seccionNueva, dto.getIdentificador());
+                    continue;
+                }
+
+                detalle.setParallelId(paraleloOpt.get());
+                repository.save(detalle);
+                log.info("Paralelo actualizado para estudiante '{}' en '{}': '{}' → '{}'",
+                        dto.getIdentificador(), dto.getAsignatura(), seccionActual, seccionNueva);
+                report.add("  → Paralelo actualizado [" + dto.getIdentificador() + " / " + dto.getAsignatura()
+                        + "]: " + seccionActual + " → " + seccionNueva);
+
+            } catch (Exception e) {
+                log.warn("No se pudo actualizar paralelo para '{}' / '{}': {}",
+                        dto.getIdentificador(), dto.getAsignatura(), e.getMessage());
+            }
+        }
     }
 
     // --- STORED PROCEDURE ---

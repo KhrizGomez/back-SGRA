@@ -14,6 +14,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
+import com.CLMTZ.Backend.config.UserContextHolder;
+import com.CLMTZ.Backend.dto.security.session.UserContext;
 
 import com.CLMTZ.Backend.dto.academic.CoordinationDTO;
 import com.CLMTZ.Backend.dto.academic.StudentLoadDTO;
@@ -26,6 +28,7 @@ import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.repository.academic.ICareerRepository;
 import com.CLMTZ.Backend.repository.academic.IClassRepository;
 import com.CLMTZ.Backend.repository.academic.ICoordinationRepository;
+import com.CLMTZ.Backend.repository.academic.IStudentsRepository;
 import com.CLMTZ.Backend.repository.academic.ITeachingRepository;
 import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
@@ -52,6 +55,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
     private final DynamicDataSourceService dynamicDataSourceService;
     private final IClassRepository classRepository;
     private final ITeachingRepository teachingRepository;
+    private final IStudentsRepository studentsRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -104,6 +108,12 @@ public class CoordinationServiceImpl implements ICoordinationService {
         }
 
         try {
+            // Actualizar datos de usuarios existentes antes de llamar al SP
+            for (StudentLoadDTO fila : dtos) {
+                if (fila.getIdentificacion() == null || fila.getIdentificacion().isBlank()) continue;
+                actualizarDatosEstudianteExistente(fila, resultados);
+            }
+
             // Convertir la lista de DTOs a JSON para el SP
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonData = mapper.writeValueAsString(dtos);
@@ -173,6 +183,12 @@ public class CoordinationServiceImpl implements ICoordinationService {
         }
 
         try {
+            // Actualizar datos de usuarios existentes antes de llamar al SP
+            for (TeachingDTO fila : dtos) {
+                if (fila.getNombres() == null || fila.getApellidos() == null) continue;
+                actualizarDatosDocenteExistente(fila, resultados);
+            }
+
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonData = mapper.writeValueAsString(dtos);
 
@@ -239,6 +255,75 @@ public class CoordinationServiceImpl implements ICoordinationService {
     // --- STORED PROCEDURES ---
 
     /**
+     * Actualiza teléfono y correo de un usuario-estudiante existente cuando cambian en el Excel.
+     * El SP se encarga del INSERT para nuevos; este método cubre el UPDATE para existentes.
+     */
+    private void actualizarDatosEstudianteExistente(StudentLoadDTO dto, List<String> resultados) {
+        try {
+            Optional<com.CLMTZ.Backend.model.general.User> userOpt =
+                    userRepository.findByIdentification(dto.getIdentificacion());
+            if (userOpt.isEmpty()) return; // usuario nuevo, el SP lo insertará
+
+            com.CLMTZ.Backend.model.general.User user = userOpt.get();
+            boolean cambio = false;
+
+            // Actualizar teléfono si cambió y es válido (no vacío)
+            String nuevoTel = dto.getTelefono() != null ? dto.getTelefono().trim() : "";
+            if (!nuevoTel.isEmpty() && !nuevoTel.equals(user.getPhoneNumber() != null ? user.getPhoneNumber().trim() : "")) {
+                user.setPhoneNumber(nuevoTel);
+                cambio = true;
+            }
+
+            // Actualizar correo si cambió y es válido
+            String nuevoCorreo = dto.getCorreo() != null ? dto.getCorreo().trim() : "";
+            if (!nuevoCorreo.isEmpty() && !nuevoCorreo.equalsIgnoreCase(user.getEmail() != null ? user.getEmail().trim() : "")) {
+                user.setEmail(nuevoCorreo);
+                cambio = true;
+            }
+
+            if (cambio) {
+                userRepository.save(user);
+                log.info("Datos actualizados para estudiante '{}': tel={}, correo={}",
+                        dto.getIdentificacion(), nuevoTel, nuevoCorreo);
+                resultados.add("  → Actualizado [" + dto.getIdentificacion() + "]: datos personales sincronizados");
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo actualizar datos del estudiante '{}': {}", dto.getIdentificacion(), e.getMessage());
+        }
+    }
+
+    /**
+     * Actualiza el correo de un usuario-docente existente cuando cambia en el Excel.
+     */
+    private void actualizarDatosDocenteExistente(TeachingDTO dto, List<String> resultados) {
+        try {
+            Optional<com.CLMTZ.Backend.model.general.User> userOpt =
+                    userRepository.findByFirstNameAndLastName(dto.getNombres(), dto.getApellidos());
+            if (userOpt.isEmpty()) return; // docente nuevo, el SP lo insertará
+
+            com.CLMTZ.Backend.model.general.User user = userOpt.get();
+            boolean cambio = false;
+
+            // Actualizar correo si cambió y es válido
+            String nuevoCorreo = dto.getCorreo() != null ? dto.getCorreo().trim() : "";
+            if (!nuevoCorreo.isEmpty() && !nuevoCorreo.equalsIgnoreCase(user.getEmail() != null ? user.getEmail().trim() : "")) {
+                user.setEmail(nuevoCorreo);
+                cambio = true;
+            }
+
+            if (cambio) {
+                userRepository.save(user);
+                String nombreRef = dto.getNombres() + " " + dto.getApellidos();
+                log.info("Correo actualizado para docente '{}': {}", nombreRef, nuevoCorreo);
+                resultados.add("  → Actualizado [" + nombreRef + "]: correo sincronizado");
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo actualizar datos del docente '{} {}': {}",
+                    dto.getNombres(), dto.getApellidos(), e.getMessage());
+        }
+    }
+
+    /**
      * Si la clase (materia+paralelo+periodo activo) ya existe con un docente diferente,
      * actualiza el docente al nuevo. Esto cubre el caso de cambio de docente en carga Excel.
      */
@@ -284,21 +369,28 @@ public class CoordinationServiceImpl implements ICoordinationService {
 
     private String ejecutarCargaEstudianteSP(String jsonData) {
         try {
-            String sql = "CALL academico.sp_in_carga_estudiante(?, ?, ?)";
+            UserContext ctx = UserContextHolder.getContext();
+            if (ctx == null) {
+                return "FALLÓ SP: No hay contexto de usuario en sesión.";
+            }
+            Integer idCoordinador = ctx.getUserId();
+
+            String sql = "CALL academico.sp_in_carga_estudiante(?, ?, ?, ?)";
             JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
             return jdbcTemplate.execute(
                 (Connection con) -> {
                     CallableStatement cs = con.prepareCall(sql);
-                    cs.setObject(1, jsonData, Types.OTHER);
-                    cs.registerOutParameter(2, Types.VARCHAR);
-                    cs.registerOutParameter(3, Types.BOOLEAN);
+                    cs.setObject(1, jsonData, Types.OTHER);    // p_json_data
+                    cs.setInt(2, idCoordinador);                // p_idusuario_coordinador
+                    cs.registerOutParameter(3, Types.VARCHAR);  // p_mensaje
+                    cs.registerOutParameter(4, Types.BOOLEAN);  // p_exito
                     return cs;
                 },
                 (CallableStatement cs) -> {
                     cs.execute();
-                    String mensaje = cs.getString(2);
-                    Boolean exito = cs.getBoolean(3);
+                    String mensaje = cs.getString(3);
+                    Boolean exito  = cs.getBoolean(4);
                     log.info("sp_in_carga_estudiante → exito={}, mensaje={}", exito, mensaje);
                     return Boolean.TRUE.equals(exito) ? "OK: " + mensaje : "FALLÓ SP: " + mensaje;
                 }
@@ -315,6 +407,7 @@ public class CoordinationServiceImpl implements ICoordinationService {
     private String ejecutarCargaDocenteSP(String jsonData) {
         try {
             String sql = "CALL academico.sp_in_carga_docente(?, ?, ?)";
+                        System.out.println(jsonData); 
             JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
 
             return jdbcTemplate.execute(
