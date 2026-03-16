@@ -32,6 +32,8 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -44,6 +46,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -128,13 +133,14 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
         if (!blob.exists()) return fail("Archivo no encontrado: " + fileName, executedBy);
 
-        Path tempFile = null;
+        Path tempZip = null;
+        Path tempBackup = null;
         boolean schemasRenombrados = false;
         try {
-            tempFile = Files.createTempFile("sgra_restore_", ".backup");
+            tempZip = Files.createTempFile("sgra_restore_zip_", ".zip");
+            tempBackup = Files.createTempFile("sgra_restore_bk_", ".backup");
 
-            // Descarga desde Azure y rename de schemas en paralelo (son independientes entre sí)
-            final Path finalTempFile = tempFile;
+            final Path finalTempFile = tempZip;
             CompletableFuture<Void> descarga = CompletableFuture.runAsync(() -> {
                 try (java.io.InputStream blobStream = blob.openInputStream()) {
                     Files.copy(blobStream, finalTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -150,6 +156,18 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
             // Espera que termine la descarga antes de lanzar pg_restore
             descarga.join();
 
+            try (ZipInputStream zis = new ZipInputStream(new FileInputStream(tempZip.toFile()))) {
+                ZipEntry zipEntry = zis.getNextEntry();
+                if (zipEntry != null) {
+                    try (FileOutputStream fos = new FileOutputStream(tempBackup.toFile())) {
+                        zis.transferTo(fos);
+                    }
+                } else {
+                    rollbackSchemas();
+                    return fail("El archivo ZIP está vacío o es inválido.", executedBy);
+                }
+            }
+
             DbInfo db = parseUrl(datasourceUrl);
             int jobs = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
             log.info("Iniciando pg_restore con {} workers paralelos.", jobs);
@@ -161,7 +179,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
                     "--no-owner", "--disable-triggers",
                     "-j", String.valueOf(jobs),
                     "-F", "c",
-                    tempFile.toAbsolutePath().toString()
+                    tempBackup.toAbsolutePath().toString()
             );
             pb.environment().put("PGPASSWORD", backupDbPassword);
             pb.environment().put("PGSSLMODE",  "require");
@@ -206,8 +224,192 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
             }
             return fail("Error inesperado durante la restauración: " + e.getMessage(), executedBy);
         } finally {
-            if (tempFile != null) try { Files.deleteIfExists(tempFile); } catch (Exception ignored) { }
+            if (tempZip != null) try { Files.deleteIfExists(tempZip); } catch (Exception ignored) { }
+            if (tempBackup != null) try { Files.deleteIfExists(tempBackup); } catch (Exception ignored) { }
         }
+    }
+
+    // ─── Restauración a nueva base de datos ────────────────────────────────────
+
+    @Override
+    public BackupResultDTO restoreBackupToNewDatabase(String fileName) {
+        UserContext ctx = UserContextHolder.getContext();
+        String executedBy = ctx != null ? ctx.getUsername() : "Sistema";
+
+        String pgRestore = findPgRestore();
+        if (pgRestore == null) return fail("pg_restore no encontrado en el servidor.", executedBy);
+
+        String psql = findPsql();
+        if (psql == null) return fail("psql no encontrado en el servidor.", executedBy);
+
+        BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
+        BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
+        if (!blob.exists()) return fail("Archivo no encontrado: " + fileName, executedBy);
+
+        String newDbName = fileName.replace(".zip", "").replace(".backup", "");
+        newDbName = newDbName.replaceAll("[^a-zA-Z0-9_]", "_").toLowerCase();
+
+        Path tempZip = null;
+        Path tempBackup = null;
+        try {
+            tempZip = Files.createTempFile("sgra_restore_newdb_zip_", ".zip");
+            tempBackup = Files.createTempFile("sgra_restore_newdb_bk_", ".backup");
+
+            log.info("Descargando backup '{}' desde Azure para crear nueva BD '{}'...", fileName, newDbName);
+            try (java.io.InputStream blobStream = blob.openInputStream()) {
+                Files.copy(blobStream, tempZip, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            try (ZipInputStream zis = new ZipInputStream(new FileInputStream(tempZip.toFile()))) {
+                ZipEntry zipEntry = zis.getNextEntry();
+                if (zipEntry != null) {
+                    try (FileOutputStream fos = new FileOutputStream(tempBackup.toFile())) {
+                        zis.transferTo(fos);
+                    }
+                } else {
+                    return fail("El archivo ZIP está vacío o es inválido.", executedBy);
+                }
+            }
+
+            DbInfo db = parseUrl(datasourceUrl);
+
+            if (databaseExists(db, newDbName)) {
+                return fail("Ya existe una base de datos con el nombre: " + newDbName, executedBy);
+            }
+
+            log.info("Creando nueva base de datos '{}'...", newDbName);
+            ProcessBuilder pbCreate = new ProcessBuilder(
+                    psql,
+                    "-h", db.host(), "-p", String.valueOf(db.port()),
+                    "-U", backupDbUser, "-d", "postgres",
+                    "-c", "CREATE DATABASE \"" + newDbName + "\" WITH OWNER = \"" + backupDbUser + "\" ENCODING = 'UTF8';"
+            );
+            pbCreate.environment().put("PGPASSWORD", backupDbPassword);
+            pbCreate.environment().put("PGSSLMODE", "require");
+            pbCreate.redirectErrorStream(true);
+
+            Process createProcess = pbCreate.start();
+            String createOutput = new String(createProcess.getInputStream().readAllBytes());
+            boolean createFinished = createProcess.waitFor(2, TimeUnit.MINUTES);
+
+            if (!createFinished) {
+                createProcess.destroyForcibly();
+                return fail("Creación de base de datos superó el tiempo límite.", executedBy);
+            }
+            if (createProcess.exitValue() != 0) {
+                log.error("Error creando BD [{}]: {}", createProcess.exitValue(), createOutput);
+                return fail("Error creando la base de datos: " + createOutput, executedBy);
+            }
+
+            log.info("Base de datos '{}' creada exitosamente.", newDbName);
+
+            int jobs = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
+            log.info("Iniciando pg_restore con {} workers paralelos en BD '{}'.", jobs, newDbName);
+
+            ProcessBuilder pbRestore = new ProcessBuilder(
+                    pgRestore,
+                    "-h", db.host(), "-p", String.valueOf(db.port()),
+                    "-U", backupDbUser, "-d", newDbName,
+                    "--no-owner", "--disable-triggers",
+                    "-j", String.valueOf(jobs),
+                    "-F", "c",
+                    tempBackup.toAbsolutePath().toString()
+            );
+            pbRestore.environment().put("PGPASSWORD", backupDbPassword);
+            pbRestore.environment().put("PGSSLMODE", "require");
+            pbRestore.redirectErrorStream(true);
+
+            Process restoreProcess = pbRestore.start();
+            String restoreOutput = new String(restoreProcess.getInputStream().readAllBytes());
+            boolean restoreFinished = restoreProcess.waitFor(30, TimeUnit.MINUTES);
+
+            if (!restoreFinished) {
+                restoreProcess.destroyForcibly();
+                dropDatabase(db, newDbName);
+                return fail("pg_restore superó el tiempo límite.", executedBy);
+            }
+            if (restoreProcess.exitValue() != 0) {
+                log.error("pg_restore falló [{}]: {}", restoreProcess.exitValue(), restoreOutput);
+                dropDatabase(db, newDbName);
+                return fail("pg_restore falló: " + restoreOutput, executedBy);
+            }
+
+            log.info("Restauración en nueva BD '{}' completada por '{}'.", newDbName, executedBy);
+
+            return new BackupResultDTO(true,
+                    "Base de datos '" + newDbName + "' creada y restaurada exitosamente desde " + fileName,
+                    fileName, null, null, executedBy,
+                    LocalDateTime.now().format(DISPLAY_FMT));
+
+        } catch (Exception e) {
+            log.error("Error durante restauración a nueva BD: {}", e.getMessage(), e);
+            return fail("Error inesperado durante la restauración: " + e.getMessage(), executedBy);
+        } finally {
+            if (tempZip != null) try { Files.deleteIfExists(tempZip); } catch (Exception ignored) { }
+            if (tempBackup != null) try { Files.deleteIfExists(tempBackup); } catch (Exception ignored) { }
+        }
+    }
+
+    private boolean databaseExists(DbInfo db, String dbName) {
+        try {
+            String psql = findPsql();
+            if (psql == null) return false;
+
+            ProcessBuilder pb = new ProcessBuilder(
+                    psql,
+                    "-h", db.host(), "-p", String.valueOf(db.port()),
+                    "-U", backupDbUser, "-d", "postgres",
+                    "-tAc", "SELECT 1 FROM pg_database WHERE datname = '" + dbName + "';"
+            );
+            pb.environment().put("PGPASSWORD", backupDbPassword);
+            pb.environment().put("PGSSLMODE", "require");
+            pb.redirectErrorStream(true);
+
+            Process process = pb.start();
+            String output = new String(process.getInputStream().readAllBytes()).trim();
+            process.waitFor(30, TimeUnit.SECONDS);
+
+            return "1".equals(output);
+        } catch (Exception e) {
+            log.error("Error verificando existencia de BD '{}': {}", dbName, e.getMessage());
+            return false;
+        }
+    }
+
+    /** Elimina una base de datos (para limpieza si el restore falla). */
+    private void dropDatabase(DbInfo db, String dbName) {
+        try {
+            String psql = findPsql();
+            if (psql == null) return;
+
+            ProcessBuilder pb = new ProcessBuilder(
+                    psql,
+                    "-h", db.host(), "-p", String.valueOf(db.port()),
+                    "-U", backupDbUser, "-d", "postgres",
+                    "-c", "DROP DATABASE IF EXISTS \"" + dbName + "\";"
+            );
+            pb.environment().put("PGPASSWORD", backupDbPassword);
+            pb.environment().put("PGSSLMODE", "require");
+            pb.redirectErrorStream(true);
+
+            Process process = pb.start();
+            process.waitFor(1, TimeUnit.MINUTES);
+            log.info("Base de datos '{}' eliminada (limpieza post-error).", dbName);
+        } catch (Exception e) {
+            log.error("Error eliminando BD '{}': {}", dbName, e.getMessage());
+        }
+    }
+
+    /** Busca el ejecutable psql (mismo directorio que pg_dump). */
+    private String findPsql() {
+        String pgDump = findPgDump();
+        if (pgDump == null) return null;
+        String psql = pgDump.replace("pg_dump", "psql");
+        try {
+            Process p = new ProcessBuilder(psql, "--version").start();
+            p.waitFor(5, TimeUnit.SECONDS);
+            return p.exitValue() == 0 ? psql : null;
+        } catch (Exception e) { return null; }
     }
 
     // ─── Backup automático ─────────────────────────────────────────────────────
@@ -257,17 +459,20 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
         DbInfo db = parseUrl(datasourceUrl);
         String timestamp = LocalDateTime.now().format(TIMESTAMP_FMT);
-        String fileName  = "sgra_" + timestamp + ".backup";
+        String fileNameBack  = "sgra_" + timestamp + ".backup";
+        String zipFileName    = "sgra_" + timestamp + ".zip";
 
-        Path tempFile = null;
+        Path tempFileBackup = null;
+        Path tempZip = null;
         try {
-            tempFile = Files.createTempFile("sgra_bk_", ".backup");
+            tempFileBackup = Files.createTempFile("sgra_bk_", ".backup");
+            tempZip = Files.createTempFile("sgra_zip_", ".zip");
 
             ProcessBuilder pb = new ProcessBuilder(
                     pgDump,
                     "-h", db.host(), "-p", String.valueOf(db.port()),
                     "-U", dbUser, "-d", db.name(),
-                    "-F", "c", "-f", tempFile.toAbsolutePath().toString()
+                    "-F", "c", "-f", tempFileBackup.toAbsolutePath().toString()
             );
             pb.environment().put("PGPASSWORD", dbPassword);
             pb.environment().put("PGSSLMODE",  "require");
@@ -283,23 +488,31 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
                 return fail("pg_dump falló: " + output, executedBy);
             }
 
-            long fileSize = Files.size(tempFile);
+            try(ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempZip.toFile())); FileInputStream inputFile = new FileInputStream(tempFileBackup.toFile())){
+                ZipEntry zipEntry = new ZipEntry(fileNameBack);
+                zos.putNextEntry(zipEntry);
+                inputFile.transferTo(zos);
+                zos.closeEntry();
+            }
+
+            long fileSize = Files.size(tempZip);
             BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
             if (!container.exists()) container.create();
 
-            BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
-            blob.uploadFromFile(tempFile.toAbsolutePath().toString(), true);
-            log.info("Backup '{}' completado por '{}' ({} bytes).", fileName, executedBy, fileSize);
+            BlobClient blob = container.getBlobClient(BLOB_PREFIX + zipFileName);
+            blob.uploadFromFile(tempZip.toAbsolutePath().toString(), true);
+            log.info("Backup '{}' comprimido y completado por '{}' ({} bytes).", zipFileName, executedBy, fileSize);
 
             return new BackupResultDTO(true, "Respaldo completado exitosamente",
-                    fileName, blob.getBlobUrl(), fileSize, executedBy,
+                    zipFileName, blob.getBlobUrl(), fileSize, executedBy,
                     LocalDateTime.now().format(DISPLAY_FMT));
 
         } catch (Exception e) {
             log.error("Error durante backup: {}", e.getMessage(), e);
             return fail("Error inesperado: " + e.getMessage(), executedBy);
         } finally {
-            if (tempFile != null) try { Files.deleteIfExists(tempFile); } catch (Exception ignored) { }
+            if (tempFileBackup != null) try { Files.deleteIfExists(tempFileBackup); } catch (Exception ignored) { }
+            if (tempZip != null) try { Files.deleteIfExists(tempZip); } catch (Exception ignored) { }
         }
     }
 

@@ -12,6 +12,7 @@ public interface IBackupService {
     // Backup manual / ejecución
     BackupResultDTO triggerManualBackup();
     BackupResultDTO restoreBackup(String fileName);
+    BackupResultDTO restoreBackupToNewDatabase(String fileName);
     List<BackupHistoryItemDTO> listBackups();
     String validatePgDump();
     String getDownloadUrl(String fileName);
