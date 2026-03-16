@@ -1,6 +1,7 @@
 package com.CLMTZ.Backend.repository.reinforcement.teacher.impl;
 
 import com.CLMTZ.Backend.config.DynamicDataSourceService;
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestSummaryDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActionResponseDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherRequestItemDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherRequestsPageDTO;
@@ -29,6 +30,13 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
 
         private NamedParameterJdbcTemplate getJdbcTemplate() {
                 return dynamicDataSourceService.getJdbcTemplate();
+        }
+
+        private Integer getTeacherId(Integer userId) {
+                String sql = "SELECT iddocente FROM academico.tbdocentes WHERE idusuario = :userId AND estado = TRUE";
+                MapSqlParameterSource params = new MapSqlParameterSource("userId", userId);
+                List<Integer> rows = getJdbcTemplate().queryForList(sql, params, Integer.class);
+                return rows.isEmpty() ? null : rows.get(0);
         }
 
         private TeacherActionResponseDTO mapActionResponse(MapSqlParameterSource params, String sql) {
@@ -212,5 +220,23 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                 return mapActionResponse(
                                 params,
                                 "SELECT * FROM reforzamiento.fn_tx_teacher_cancel_session(:userId::int, :requestId::int, :reason::text)");
+        }
+
+        @Override
+        public StudentRequestSummaryDTO getRequestSummary(Integer requestId) {
+                String sql = "SELECT * FROM reforzamiento.fn_sl_resumen_solicitud_notif(:requestId)";
+                MapSqlParameterSource params = new MapSqlParameterSource("requestId", requestId);
+                return getJdbcTemplate().query(sql, params, rs -> rs.next()
+                        ? new StudentRequestSummaryDTO(
+                                rs.getInt("request_id"),
+                                rs.getString("student_name"),
+                                rs.getString("student_email"),
+                                rs.getString("teacher_name"),
+                                rs.getString("teacher_email"),
+                                rs.getString("subject_name"),
+                                rs.getString("course_name"),
+                                rs.getString("parallel_name"),
+                                rs.getString("reason"))
+                        : null);
         }
 }

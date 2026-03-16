@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.repository.reinforcement.teacher;
 
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestSummaryDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherActionResponseDTO;
 import com.CLMTZ.Backend.dto.reinforcement.teacher.TeacherRequestsPageDTO;
 
@@ -13,4 +14,5 @@ public interface TeacherRequestRepository {
                                                Integer timeSlotId, Integer modalityId, String estimatedDuration,
                                                String reason, Integer workAreaTypeId);
     TeacherActionResponseDTO cancelSession(Integer userId, Integer scheduledId, String reason);
+    StudentRequestSummaryDTO getRequestSummary(Integer requestId);
 }

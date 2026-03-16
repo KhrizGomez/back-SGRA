@@ -35,7 +35,7 @@ public class JavaFallbackValidator {
     private static final Pattern CEDULA_PATTERN = Pattern.compile("^\\d{10}$");
     private static final Pattern PASSPORT_PATTERN = Pattern.compile("^[A-Za-z0-9-]{5,20}$");
     private static final Pattern ONLY_LETTERS_PATTERN = Pattern.compile("^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\\s]+$");
-    private static final Pattern STRANGE_CHARS_PATTERN = Pattern.compile("[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ@.\\s_/-]");
+    private static final Pattern STRANGE_CHARS_PATTERN = Pattern.compile("[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ@.,\\s_/-]");
 
     /**
      * Ejecuta todas las validaciones de fallback sobre las filas del Excel.
@@ -225,20 +225,23 @@ public class JavaFallbackValidator {
         String raw = getString(row, fieldName);
         if (raw.isEmpty()) return;
 
-        String digits = raw.replaceAll("\\D", "");
-        boolean isValid = digits.length() == 10 && digits.startsWith("0");
-        if (!isValid) {
-            AIValidationIssue.Severity severity = required
-                    ? AIValidationIssue.Severity.ERROR
-                    : AIValidationIssue.Severity.WARNING;
-            issues.add(AIValidationIssue.builder()
-                    .row(rowNum)
-                    .field(fieldName)
-                    .severity(severity)
-                    .message("El telefono '" + raw + "' en la fila " + rowNum + " no tiene 10 digitos validos.")
-                    .suggestion("Use un telefono de 10 digitos, por ejemplo 0999999999.")
-                    .source("FALLBACK")
-                    .build());
+        // Soporta 1 o 2 números separados por coma (ej: "0987654321, 0999999999")
+        String[] parts = raw.split(",");
+        for (String part : parts) {
+            String digits = part.trim().replaceAll("\\D", "");
+            if (!digits.isEmpty() && digits.length() != 10) {
+                AIValidationIssue.Severity severity = required
+                        ? AIValidationIssue.Severity.ERROR
+                        : AIValidationIssue.Severity.WARNING;
+                issues.add(AIValidationIssue.builder()
+                        .row(rowNum)
+                        .field(fieldName)
+                        .severity(severity)
+                        .message("El telefono '" + part.trim() + "' en la fila " + rowNum + " no tiene 10 digitos.")
+                        .suggestion("Use un telefono de 10 digitos, por ejemplo 0999999999.")
+                        .source("FALLBACK")
+                        .build());
+            }
         }
     }
 
@@ -475,7 +478,8 @@ public class JavaFallbackValidator {
         if (cedula == null || !CEDULA_PATTERN.matcher(cedula).matches()) return false;
 
         int province = Integer.parseInt(cedula.substring(0, 2));
-        if (province < 1 || province > 24) return false;
+        // 01-24: provincias del Ecuador | 30: ecuatorianos nacidos en el exterior
+        if (province < 1 || (province > 24 && province != 30)) return false;
 
         int third = Character.getNumericValue(cedula.charAt(2));
         if (third < 0 || third > 5) return false;
