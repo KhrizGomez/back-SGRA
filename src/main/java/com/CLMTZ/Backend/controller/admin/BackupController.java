@@ -59,6 +59,11 @@ public class BackupController {
         return ResponseEntity.ok(backupService.restoreBackup(fileName));
     }
 
+    @PostMapping("/restore-new-db/{fileName}")
+    public ResponseEntity<BackupResultDTO> restoreToNewDatabase(@PathVariable String fileName) {
+        return ResponseEntity.ok(backupService.restoreBackupToNewDatabase(fileName));
+    }
+
     @GetMapping("/download/{fileName}")
     public ResponseEntity<Map<String, Object>> download(@PathVariable String fileName) {
         try {
