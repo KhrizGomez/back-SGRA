@@ -36,15 +36,11 @@ public class EmailService implements IEmailService {
     @Value("${sgra-master-key}")
     private String masterKey;
 
-    // ─── Método simplificado: cualquier módulo puede usarlo ───
-
     @Override
     public void sendEmail(String to, String subject, String body) {
         EmailSettingsResponseDTO config = getActiveEmailConfig();
         sendEmail(config, to, subject, body);
     }
-
-    // ─── Método asíncrono para cargas masivas ───
 
     @Async
     @Override
@@ -52,32 +48,35 @@ public class EmailService implements IEmailService {
         try {
             sendEmail(to, subject, body);
         } catch (Exception e) {
-            log.error("❌ Error en envío asíncrono a {}: {}", to, e.getMessage());
+            log.error("Error en envío asíncrono a {}: {}", to, e.getMessage());
         }
     }
 
-    // ─── Método con config explícita (mantiene compatibilidad) ───
+    private JavaMailSenderImpl configMailSender(EmailSettingsResponseDTO config) {
+        JavaMailSenderImpl emailSender = new JavaMailSenderImpl();
 
-    @Override
-    public void sendEmail(EmailSettingsResponseDTO config, String to, String subject, String body) {
-        try {
-            JavaMailSenderImpl emailSender = new JavaMailSenderImpl();
+        emailSender.setHost(config.getServidorSmtp());
+        emailSender.setPort(config.getPuertoSmtp());
+        emailSender.setUsername(config.getCorreoEmisor());
+        emailSender.setPassword(config.getContrasenaAplicacion());
 
-            emailSender.setHost(config.getServidorSmtp());
-            emailSender.setPort(config.getPuertoSmtp());
-            emailSender.setUsername(config.getCorreoEmisor());
-            emailSender.setPassword(config.getContrasenaAplicacion());
+        Properties props = emailSender.getJavaMailProperties();
+        props.put("mail.transport.protocol", "smtp");
+        props.put("mail.smtp.auth", "true");
 
-            Properties props = emailSender.getJavaMailProperties();
-            props.put("mail.transport.protocol", "smtp");
-            props.put("mail.smtp.auth", "true");
-
-            if (config.getUsaSSL()) {
-                props.put("mail.smtp.starttls.enable", "true");
-                if (config.getPuertoSmtp() == 465) {
-                    props.put("mail.smtp.ssl.enable", "true");
-                }
+        if (config.getUsaSSL()) {
+            props.put("mail.smtp.starttls.enable", "true");
+            if (config.getPuertoSmtp() == 465) {
+                props.put("mail.smtp.ssl.enable", "true");
             }
+        }
+
+        return emailSender;
+    }
+
+    private void sendEmail(EmailSettingsResponseDTO config, String to, String subject, String body) {
+        try {
+            JavaMailSenderImpl emailSender = configMailSender(config);
 
             MimeMessage messageMime = emailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(messageMime, true, "UTF-8");
@@ -93,11 +92,22 @@ public class EmailService implements IEmailService {
             }
 
             emailSender.send(messageMime);
-            log.info("✅ Email enviado exitosamente a: {}", to);
+            log.info("Email enviado exitosamente a: {}", to);
 
         } catch (Exception e) {
-            log.error("❌ Error al enviar email a {}: {}", to, e.getMessage());
+            log.error("Error al enviar email a {}: {}", to, e.getMessage());
             throw new RuntimeException("Error al enviar el correo: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public boolean testSmtpConnection(EmailSettingsResponseDTO config) {
+        try {
+            JavaMailSenderImpl emailSender = configMailSender(config);
+            emailSender.testConnection();
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 

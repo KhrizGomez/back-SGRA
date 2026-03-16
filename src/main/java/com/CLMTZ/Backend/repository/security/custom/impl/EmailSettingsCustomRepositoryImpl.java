@@ -66,4 +66,51 @@ public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRe
             }
         );
     }
+
+    @Override
+    public SpResponseDTO updateEmail(Integer idConfiguracionCorreo, Integer userid, String email, String passwordApp, String servidorSmtp, Integer puertoSmtp, Boolean ssl, String nombreRemitente, Boolean estado) {
+
+        String sql = "Call seguridad.sp_up_configuracioncorreo(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        JdbcTemplate jdbcTemplate = dynamicDataSourceService.getJdbcTemplate().getJdbcTemplate();
+
+        return jdbcTemplate.execute(
+            (Connection con) -> {
+                CallableStatement cs = con.prepareCall(sql);
+
+                cs.setInt(1, idConfiguracionCorreo);
+                cs.setInt(2, userid);
+                cs.setString(3, email);
+                cs.setString(4, passwordApp);
+                cs.setString(5, servidorSmtp);
+                cs.setInt(6, puertoSmtp);
+                cs.setBoolean(7, ssl);
+                cs.setString(8, nombreRemitente);
+                cs.setBoolean(9, estado);
+
+                cs.registerOutParameter(10, Types.VARCHAR);
+                cs.registerOutParameter(11, Types.BOOLEAN);
+
+                return cs;
+            },
+            (CallableStatement cs) -> {
+
+                cs.execute();
+
+                String message = cs.getString(10);
+                Boolean success = cs.getBoolean(11);
+
+                return new SpResponseDTO(message, success);
+            }
+        );
+    }
+
+    @Override
+    public EmailSettingsRequestDTO getEmailById(Integer idConfiguracionCorreo) {
+        String query = "Select * from seguridad.fn_sl_up_configuracioncorreo(:p_idconfiguracioncorreo)";
+
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("p_idconfiguracioncorreo", idConfiguracionCorreo);
+
+        return dynamicDataSourceService.getJdbcTemplate().queryForObject(query, params, EmailSettingsRequestDTO.class);
+    }
 }
