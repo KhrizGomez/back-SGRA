@@ -10,7 +10,7 @@ REGLAS DE VALIDACION:
 
 2. "identificacion": obligatorio.
    Si tiene exactamente 10 digitos numericos, aplicar algoritmo de cedula ecuatoriana:
-     - Paso 1: Los 2 primeros digitos forman el codigo de provincia. Debe estar entre 01 y 24.
+     - Paso 1: Los 2 primeros digitos forman el codigo de provincia. Debe estar entre 01 y 24, o ser exactamente 30 (ecuatorianos nacidos en el exterior).
      - Paso 2: El tercer digito debe ser 0, 1, 2, 3, 4 o 5.
      - Paso 3: Calcular digito verificador con los primeros 9 digitos:
          * Coeficientes en orden: [2, 1, 2, 1, 2, 1, 2, 1, 2]

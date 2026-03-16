@@ -478,7 +478,8 @@ public class JavaFallbackValidator {
         if (cedula == null || !CEDULA_PATTERN.matcher(cedula).matches()) return false;
 
         int province = Integer.parseInt(cedula.substring(0, 2));
-        if (province < 1 || province > 24) return false;
+        // 01-24: provincias del Ecuador | 30: ecuatorianos nacidos en el exterior
+        if (province < 1 || (province > 24 && province != 30)) return false;
 
         int third = Character.getNumericValue(cedula.charAt(2));
         if (third < 0 || third > 5) return false;
