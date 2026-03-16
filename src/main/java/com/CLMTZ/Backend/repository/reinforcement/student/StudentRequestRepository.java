@@ -26,9 +26,4 @@ public interface StudentRequestRepository {
      * @param studentIds Lista de IDs de estudiantes participantes
      */
     void addParticipants(Integer requestId, List<Integer> studentIds);
-
-    /**
-     * Obtiene datos básicos de la solicitud para notificaciones.
-     */
-    com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestSummaryDTO getRequestSummary(Integer requestId);
 }
