@@ -6,6 +6,7 @@ import com.CLMTZ.Backend.dto.report.ReportDataDTO;
 import com.CLMTZ.Backend.dto.report.RequestDetailRowDTO;
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
+import com.lowagie.text.Image;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URL;
 import java.util.List;
 
 @Component
@@ -25,6 +27,8 @@ public class PdfReportGenerator {
     private static final Font CELL_FONT = new Font(Font.HELVETICA, 8, Font.NORMAL, Color.BLACK);
     private static final Font VALUE_FONT = new Font(Font.HELVETICA, 10, Font.NORMAL, Color.BLACK);
     private static final Color HEADER_BG = new Color(0, 51, 102);
+    private static final Font INST_NAME_FONT = new Font(Font.HELVETICA, 14, Font.BOLD, new Color(0, 51, 102));
+    private static final Font INST_NAME_GREEN_FONT = new Font(Font.HELVETICA, 14, Font.BOLD, new Color(27, 117, 5));
 
     public byte[] generateCoordinationDashboard(ReportDataDTO data) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -32,6 +36,7 @@ public class PdfReportGenerator {
         PdfWriter.getInstance(document, out);
         document.open();
 
+        addInstitutionHeader(document, data.getInstitutionLogoUrl(), data.getInstitutionName(), INST_NAME_FONT);
         addTitle(document, "Reporte de Coordinacion", data.getPeriodName());
 
         addKpisSection(document, data.getKpis());
@@ -49,6 +54,7 @@ public class PdfReportGenerator {
         PdfWriter.getInstance(document, out);
         document.open();
 
+        addInstitutionHeader(document, data.getInstitutionLogoUrl(), data.getInstitutionName(), INST_NAME_FONT);
         addTitle(document, "Reporte de Asistencia", data.getPeriodName());
         addAttendanceSummarySection(document, data.getAsistencia());
 
@@ -89,6 +95,7 @@ public class PdfReportGenerator {
         PdfWriter.getInstance(document, out);
         document.open();
 
+        addInstitutionHeader(document, data.getInstitutionLogoUrl(), data.getInstitutionName(), INST_NAME_FONT);
         addTitle(document, "Reporte de Solicitudes", data.getPeriodName());
         addSubjectSection(document, data.getSolicitudesPorMateria());
 
@@ -232,6 +239,52 @@ public class PdfReportGenerator {
         return value != null ? value : "";
     }
 
+    /**
+     * Agrega un encabezado institucional al documento PDF con el logo y nombre de la institución.
+     * El logo se descarga desde la URL desencriptada y se muestra a la izquierda del nombre.
+     */
+    private void addInstitutionHeader(Document document, String logoUrl, String institutionName, Font nameFont) {
+        if ((logoUrl == null || logoUrl.isBlank()) && (institutionName == null || institutionName.isBlank())) {
+            return;
+        }
+        try {
+            PdfPTable headerTable = new PdfPTable(2);
+            headerTable.setWidthPercentage(100);
+            headerTable.setWidths(new float[]{1f, 4f});
+            headerTable.setSpacingAfter(10);
+
+            // Celda del logo
+            PdfPCell logoCell = new PdfPCell();
+            logoCell.setBorder(PdfPCell.NO_BORDER);
+            logoCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            if (logoUrl != null && !logoUrl.isBlank()) {
+                try {
+                    Image logo = Image.getInstance(new URL(logoUrl));
+                    logo.scaleToFit(80, 80);
+                    logoCell.addElement(logo);
+                } catch (Exception e) {
+                    logoCell.addElement(new Phrase(""));
+                }
+            } else {
+                logoCell.addElement(new Phrase(""));
+            }
+            headerTable.addCell(logoCell);
+
+            // Celda del nombre de la institución
+            PdfPCell nameCell = new PdfPCell(new Phrase(nullSafe(institutionName), nameFont));
+            nameCell.setBorder(PdfPCell.NO_BORDER);
+            nameCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+            nameCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            nameCell.setPaddingLeft(10);
+            headerTable.addCell(nameCell);
+
+            document.add(headerTable);
+        } catch (Exception e) {
+            // Si falla el encabezado institucional, el reporte se genera sin él
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     //  TABLA SIMPLE — replica la vista previa del frontend
     // ──────────────────────────────────────────────────────────────────────────
@@ -251,11 +304,16 @@ public class PdfReportGenerator {
                                       List<String> keys,
                                       List<String> headers,
                                       String title,
-                                      String periodName) throws IOException {
+                                      String periodName,
+                                      String institutionName,
+                                      String institutionLogoUrl) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4.rotate(), 28, 28, 36, 28);
         PdfWriter.getInstance(document, out);
         document.open();
+
+        // ── Encabezado institucional ──────────────────────────────────────────
+        addInstitutionHeader(document, institutionLogoUrl, institutionName, INST_NAME_GREEN_FONT);
 
         // ── Título ───────────────────────────────────────────────────────────
         Paragraph titlePar = new Paragraph("Reporte – " + title, PDF_TITLE_FONT);

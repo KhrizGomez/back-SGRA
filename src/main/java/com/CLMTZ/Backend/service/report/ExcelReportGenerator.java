@@ -6,12 +6,15 @@ import com.CLMTZ.Backend.dto.report.RequestDetailRowDTO;
 import com.CLMTZ.Backend.dto.reinforcement.coordination.*;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.util.IOUtils;
 import org.apache.poi.xddf.usermodel.chart.*;
 import org.apache.poi.xssf.usermodel.*;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.List;
 
 @Component
@@ -24,7 +27,9 @@ public class ExcelReportGenerator {
     public byte[] generateCoordinationDashboard(ReportDataDTO data) throws IOException {
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
             Styles s = new Styles(wb);
-            createKpisSheet(wb, data, s);
+            XSSFSheet firstSheet = wb.createSheet("KPIs Generales");
+            int ri = addInstitutionHeaderToSheet(wb, firstSheet, 0, 2, data.getInstitutionLogoUrl(), data.getInstitutionName());
+            createKpisSheetContent(firstSheet, ri, data, s);
             createAttendanceSheet(wb, data, s);
             createSubjectSheet(wb, data, s);
             createModalitySheet(wb, data, s);
@@ -35,7 +40,9 @@ public class ExcelReportGenerator {
     public byte[] generateAttendanceDetail(ReportDataDTO data) throws IOException {
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
             Styles s = new Styles(wb);
-            createAttendanceSheet(wb, data, s);
+            XSSFSheet firstSheet = wb.createSheet("Resumen Asistencia");
+            int ri = addInstitutionHeaderToSheet(wb, firstSheet, 0, 2, data.getInstitutionLogoUrl(), data.getInstitutionName());
+            createAttendanceSheetContent(firstSheet, ri, data, s);
             createAttendanceDetailSheet(wb, data, s);
             return toBytes(wb);
         }
@@ -44,7 +51,9 @@ public class ExcelReportGenerator {
     public byte[] generateRequestsDetail(ReportDataDTO data) throws IOException {
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
             Styles s = new Styles(wb);
-            createSubjectSheet(wb, data, s);
+            XSSFSheet firstSheet = wb.createSheet("Solicitudes por Materia");
+            int ri = addInstitutionHeaderToSheet(wb, firstSheet, 0, 3, data.getInstitutionLogoUrl(), data.getInstitutionName());
+            createSubjectSheetContent(firstSheet, ri, data, s);
             createRequestsDetailSheet(wb, data, s);
             return toBytes(wb);
         }
@@ -56,7 +65,10 @@ public class ExcelReportGenerator {
 
     private void createKpisSheet(XSSFWorkbook wb, ReportDataDTO data, Styles s) {
         XSSFSheet sheet = wb.createSheet("KPIs Generales");
-        int ri = 0;
+        createKpisSheetContent(sheet, 0, data, s);
+    }
+
+    private void createKpisSheetContent(XSSFSheet sheet, int ri, ReportDataDTO data, Styles s) {
 
         ri = writeMergedTitle(sheet, ri,
                 "Reporte de Coordinación - SGRA  |  " + data.getPeriodName(), s.title, 2);
@@ -84,7 +96,10 @@ public class ExcelReportGenerator {
 
     private void createAttendanceSheet(XSSFWorkbook wb, ReportDataDTO data, Styles s) {
         XSSFSheet sheet = wb.createSheet("Resumen Asistencia");
-        int ri = 0;
+        createAttendanceSheetContent(sheet, 0, data, s);
+    }
+
+    private void createAttendanceSheetContent(XSSFSheet sheet, int ri, ReportDataDTO data, Styles s) {
 
         ri = writeMergedTitle(sheet, ri,
                 "Resumen de Asistencia - " + data.getPeriodName(), s.title, 2);
@@ -116,7 +131,10 @@ public class ExcelReportGenerator {
 
     private void createSubjectSheet(XSSFWorkbook wb, ReportDataDTO data, Styles s) {
         XSSFSheet sheet = wb.createSheet("Solicitudes por Materia");
-        int ri = 0;
+        createSubjectSheetContent(sheet, 0, data, s);
+    }
+
+    private void createSubjectSheetContent(XSSFSheet sheet, int ri, ReportDataDTO data, Styles s) {
 
         ri = writeMergedTitle(sheet, ri,
                 "Solicitudes por Materia - " + data.getPeriodName(), s.title, 3);
@@ -412,6 +430,70 @@ public class ExcelReportGenerator {
 
     private String nz(String v) { return v != null ? v : ""; }
 
+    // ──────────────────────────────────────────────────────────────────────────────
+    //  ENCABEZADO INSTITUCIONAL (logo + nombre)
+    // ──────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Agrega un encabezado institucional con logo y nombre en la hoja de Excel.
+     * Retorna la fila siguiente disponible para continuar escribiendo.
+     *
+     * @param wb             workbook para agregar la imagen
+     * @param sheet          hoja donde se escribe el encabezado
+     * @param startRow       fila inicial
+     * @param lastCol        última columna para merge del nombre
+     * @param logoUrl        URL del logo (desencriptada)
+     * @param institutionName nombre de la institución
+     * @return la fila siguiente disponible después del encabezado
+     */
+    private int addInstitutionHeaderToSheet(XSSFWorkbook wb, XSSFSheet sheet, int startRow, int lastCol,
+                                            String logoUrl, String institutionName) {
+        if ((logoUrl == null || logoUrl.isBlank()) && (institutionName == null || institutionName.isBlank())) {
+            return startRow;
+        }
+
+        int ri = startRow;
+
+        // Logo
+        if (logoUrl != null && !logoUrl.isBlank()) {
+            try (InputStream is = new URL(logoUrl).openStream()) {
+                byte[] imageBytes = IOUtils.toByteArray(is);
+                int pictureIdx = wb.addPicture(imageBytes, Workbook.PICTURE_TYPE_PNG);
+                CreationHelper helper = wb.getCreationHelper();
+                Drawing<?> drawing = sheet.createDrawingPatriarch();
+                ClientAnchor anchor = helper.createClientAnchor();
+                anchor.setCol1(0);
+                anchor.setRow1(ri);
+                anchor.setCol2(1);
+                anchor.setRow2(ri + 4);
+                drawing.createPicture(anchor, pictureIdx);
+            } catch (Exception e) {
+                // Si falla la descarga del logo, continuar sin él
+            }
+        }
+
+        // Nombre de la institución al lado del logo
+        if (institutionName != null && !institutionName.isBlank()) {
+            Row nameRow = sheet.createRow(ri + 1);
+            nameRow.setHeightInPoints(24);
+            Cell nameCell = nameRow.createCell(1);
+            nameCell.setCellValue(institutionName);
+            CellStyle instStyle = wb.createCellStyle();
+            Font instFont = wb.createFont();
+            instFont.setBold(true);
+            instFont.setFontHeightInPoints((short) 14);
+            instFont.setColor(IndexedColors.DARK_BLUE.getIndex());
+            instStyle.setFont(instFont);
+            instStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            nameCell.setCellStyle(instStyle);
+            if (lastCol > 1) {
+                sheet.addMergedRegion(new CellRangeAddress(ri + 1, ri + 1, 1, lastCol));
+            }
+        }
+
+        return ri + 5; // dejar espacio para el logo (4 filas) + 1 de margen
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     //  TABLA SIMPLE — replica la vista previa del frontend
     // ──────────────────────────────────────────────────────────────────────────
@@ -419,31 +501,32 @@ public class ExcelReportGenerator {
     /**
      * Genera un archivo Excel de una sola hoja con los mismos datos y columnas
      * que aparecen en la vista previa del frontend.
-     *
-     * @param rows      filas de datos (mapa clave→valor)
-     * @param keys      claves de las columnas visibles (en orden)
-     * @param headers   etiquetas de las columnas (mismo orden que keys)
-     * @param title     título del reporte
-     * @param periodName nombre del período activo
      */
     public byte[] generateSimpleTable(List<java.util.Map<String, Object>> rows,
                                       List<String> keys,
                                       List<String> headers,
                                       String title,
-                                      String periodName) throws IOException {
+                                      String periodName,
+                                      String institutionName,
+                                      String institutionLogoUrl) throws IOException {
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
             SimpleStyles ss = new SimpleStyles(wb);
             XSSFSheet sheet = wb.createSheet(title.length() > 31 ? title.substring(0, 31) : title);
             int ri = 0;
 
+            // ── Encabezado institucional ─────────────────────────────────────
+            ri = addInstitutionHeaderToSheet(wb, sheet, ri, Math.max(headers.size() - 1, 1),
+                    institutionLogoUrl, institutionName);
+
             // ── Fila de título ──────────────────────────────────────────────
+            int titleRowIdx = ri;
             Row titleRow = sheet.createRow(ri++);
             titleRow.setHeightInPoints(28);
             Cell titleCell = titleRow.createCell(0);
             titleCell.setCellValue(title + " — " + periodName);
             titleCell.setCellStyle(ss.title);
             if (headers.size() > 1) {
-                sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, headers.size() - 1));
+                sheet.addMergedRegion(new CellRangeAddress(titleRowIdx, titleRowIdx, 0, headers.size() - 1));
             }
 
             // ── Fila de encabezados ─────────────────────────────────────────

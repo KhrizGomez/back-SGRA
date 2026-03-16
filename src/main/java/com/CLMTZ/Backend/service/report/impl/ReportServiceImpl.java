@@ -1,10 +1,12 @@
 package com.CLMTZ.Backend.service.report.impl;
 
 import com.CLMTZ.Backend.dto.report.ReportDataDTO;
+import com.CLMTZ.Backend.dto.security.InstitutionLogoDTO;
 import com.CLMTZ.Backend.repository.report.ReportRepository;
 import com.CLMTZ.Backend.service.report.ExcelReportGenerator;
 import com.CLMTZ.Backend.service.report.PdfReportGenerator;
 import com.CLMTZ.Backend.service.report.ReportService;
+import com.CLMTZ.Backend.service.security.IInstitutionLogoService;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -63,18 +65,22 @@ public class ReportServiceImpl implements ReportService {
     private final ReportRepository reportRepository;
     private final ExcelReportGenerator excelGenerator;
     private final PdfReportGenerator pdfGenerator;
+    private final IInstitutionLogoService institutionLogoService;
 
     public ReportServiceImpl(ReportRepository reportRepository,
                              ExcelReportGenerator excelGenerator,
-                             PdfReportGenerator pdfGenerator) {
+                             PdfReportGenerator pdfGenerator,
+                             IInstitutionLogoService institutionLogoService) {
         this.reportRepository = reportRepository;
         this.excelGenerator = excelGenerator;
         this.pdfGenerator = pdfGenerator;
+        this.institutionLogoService = institutionLogoService;
     }
 
     @Override
     public byte[] generateReport(String reportType, String format) {
         ReportDataDTO data = getReportData(reportType);
+        populateInstitutionInfo(data);
         try {
             if ("PDF".equalsIgnoreCase(format)) {
                 return generatePdf(reportType, data);
@@ -159,11 +165,16 @@ public class ReportServiceImpl implements ReportService {
 
         String title = REPORT_TITLES.getOrDefault(type, "Reporte");
 
+        // Obtener info de institución del usuario actual
+        InstitutionLogoDTO logoInfo = institutionLogoService.getLogoForCurrentUser();
+        String instName = logoInfo != null ? logoInfo.getInstitutionName() : null;
+        String instLogoUrl = logoInfo != null ? logoInfo.getLogoUrl() : null;
+
         try {
             if ("PDF".equalsIgnoreCase(format)) {
-                return pdfGenerator.generateSimpleTable(rows, keys, headers, title, periodName);
+                return pdfGenerator.generateSimpleTable(rows, keys, headers, title, periodName, instName, instLogoUrl);
             } else {
-                return excelGenerator.generateSimpleTable(rows, keys, headers, title, periodName);
+                return excelGenerator.generateSimpleTable(rows, keys, headers, title, periodName, instName, instLogoUrl);
             }
         } catch (IOException e) {
             throw new RuntimeException("Error al generar el reporte: " + e.getMessage(), e);
@@ -220,6 +231,21 @@ public class ReportServiceImpl implements ReportService {
             case "REQUESTS_DETAIL"        -> pdfGenerator.generateRequestsDetail(data);
             default -> throw new IllegalArgumentException("Tipo de reporte no valido: " + reportType);
         };
+    }
+
+    /**
+     * Obtiene el logo e institución del usuario actual y los agrega al DTO de reporte.
+     */
+    private void populateInstitutionInfo(ReportDataDTO data) {
+        try {
+            InstitutionLogoDTO logoInfo = institutionLogoService.getLogoForCurrentUser();
+            if (logoInfo != null) {
+                data.setInstitutionName(logoInfo.getInstitutionName());
+                data.setInstitutionLogoUrl(logoInfo.getLogoUrl());
+            }
+        } catch (Exception e) {
+            // Si falla la obtención del logo, el reporte se genera sin encabezado institucional
+        }
     }
 }
 

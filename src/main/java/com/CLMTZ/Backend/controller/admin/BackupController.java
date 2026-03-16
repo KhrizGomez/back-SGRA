@@ -1,10 +1,15 @@
 package com.CLMTZ.Backend.controller.admin;
 
+import com.CLMTZ.Backend.dto.admin.BackupBrowseDTO;
 import com.CLMTZ.Backend.dto.admin.BackupHistoryItemDTO;
+import com.CLMTZ.Backend.dto.admin.BackupLocalConfigDTO;
 import com.CLMTZ.Backend.dto.admin.BackupResultDTO;
 import com.CLMTZ.Backend.dto.admin.BackupScheduleEntryDTO;
 import com.CLMTZ.Backend.service.admin.IBackupService;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -60,6 +65,40 @@ public class BackupController {
             return ResponseEntity.ok(Map.of("url", backupService.getDownloadUrl(fileName)));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    /** Descarga el contenido del backup directamente desde Azure, evitando CORS en el browser. */
+    @GetMapping("/stream/{fileName}")
+    public void stream(@PathVariable String fileName, HttpServletResponse response) throws Exception {
+        response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"" + fileName + "\"");
+        backupService.streamBackup(fileName, response.getOutputStream());
+    }
+
+    // ─── Configuración ruta local ───────────────────────────────────────────────
+
+    @GetMapping("/local-config")
+    public ResponseEntity<BackupLocalConfigDTO> getLocalConfig() {
+        BackupLocalConfigDTO config = backupService.getLocalConfig();
+        if (config == null) return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(config);
+    }
+
+    @PostMapping("/local-config")
+    public ResponseEntity<BackupLocalConfigDTO> saveLocalConfig(@RequestBody Map<String, String> body) {
+        String ruta = body.get("ruta");
+        if (ruta == null || ruta.isBlank()) return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(backupService.saveLocalConfig(ruta.trim()));
+    }
+
+    @GetMapping("/browse")
+    public ResponseEntity<BackupBrowseDTO> browse(@RequestParam(required = false) String path) {
+        try {
+            return ResponseEntity.ok(backupService.browseDirectory(path));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
         }
     }
 
