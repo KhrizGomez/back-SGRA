@@ -1,5 +1,7 @@
 package com.CLMTZ.Backend.repository.reinforcement.student;
 
+import com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestSummaryDTO;
+
 import java.util.List;
 
 public interface StudentRequestRepository {
@@ -26,4 +28,12 @@ public interface StudentRequestRepository {
      * @param studentIds Lista de IDs de estudiantes participantes
      */
     void addParticipants(Integer requestId, List<Integer> studentIds);
+
+    /**
+     * Obtiene un resumen de la solicitud de refuerzo.
+     *
+     * @param requestId ID de la solicitud
+     * @return Resumen de la solicitud
+     */
+    StudentRequestSummaryDTO getRequestSummary(Integer requestId);
 }
