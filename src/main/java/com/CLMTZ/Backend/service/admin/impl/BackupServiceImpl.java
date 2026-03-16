@@ -1,11 +1,15 @@
 package com.CLMTZ.Backend.service.admin.impl;
 
 import com.CLMTZ.Backend.config.UserContextHolder;
+import com.CLMTZ.Backend.dto.admin.BackupBrowseDTO;
 import com.CLMTZ.Backend.dto.admin.BackupHistoryItemDTO;
+import com.CLMTZ.Backend.dto.admin.BackupLocalConfigDTO;
 import com.CLMTZ.Backend.dto.admin.BackupResultDTO;
 import com.CLMTZ.Backend.dto.admin.BackupScheduleEntryDTO;
 import com.CLMTZ.Backend.dto.security.session.UserContext;
+import com.CLMTZ.Backend.model.admin.BackupLocalConfig;
 import com.CLMTZ.Backend.model.admin.BackupScheduleEntry;
+import com.CLMTZ.Backend.repository.admin.IBackupLocalConfigRepository;
 import com.CLMTZ.Backend.repository.admin.IBackupScheduleEntryRepository;
 import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.service.admin.BackupScheduler;
@@ -27,9 +31,11 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -64,6 +70,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     private final BlobServiceClient blobServiceClient;
     private final IBackupScheduleEntryRepository scheduleRepository;
     private final IUserRepository userRepository;
+    private final IBackupLocalConfigRepository localConfigRepository;
     private final BackupScheduler backupScheduler;
     private final DataSource dataSource;
     private final EntityManagerFactory entityManagerFactory;
@@ -207,17 +214,39 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
     private void runScheduledBackup(Integer scheduleId) {
         log.info("Ejecutando backup automático para schedule #{}...", scheduleId);
-        BackupResultDTO result = executeBackup(backupDbUser, backupDbPassword,
-                "Sistema (automático — schedule #" + scheduleId + ")");
-
         scheduleRepository.findById(scheduleId).ifPresent(entry -> {
+            BackupResultDTO result = executeBackup(backupDbUser, backupDbPassword,
+                    "Sistema (automático — schedule #" + scheduleId + ")");
             entry.setFechaUltimaEjecucion(LocalDateTime.now());
             entry.setResultadoUltimaEjecucion(
                     result.isSuccess() ? "OK: " + result.getFileName()
                                        : "ERROR: " + result.getMessage()
             );
             scheduleRepository.save(entry);
+            // Copia local (regla 3-2-1): guarda en ruta configurada si existe
+            if (result.isSuccess() && result.getFileName() != null) {
+                saveToLocalPath(result.getFileName());
+            }
         });
+    }
+
+    /** Guarda el archivo de backup en la ruta local configurada (solo para respaldos automáticos). */
+    private void saveToLocalPath(String fileName) {
+        localConfigRepository.findById(1).ifPresentOrElse(config -> {
+            try {
+                java.nio.file.Path dir  = java.nio.file.Path.of(config.getRuta());
+                java.nio.file.Files.createDirectories(dir);
+                java.nio.file.Path dest = dir.resolve(fileName);
+                BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
+                BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
+                try (java.io.InputStream blobStream = blob.openInputStream()) {
+                    java.nio.file.Files.copy(blobStream, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                log.info("Backup '{}' guardado localmente en '{}'.", fileName, config.getRuta());
+            } catch (Exception e) {
+                log.error("No se pudo guardar backup local en '{}': {}", config.getRuta(), e.getMessage(), e);
+            }
+        }, () -> log.warn("saveToLocalPath: ruta local no configurada — copia local omitida."));
     }
 
     // ─── Ejecución compartida ──────────────────────────────────────────────────
@@ -260,8 +289,8 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
             BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
             blob.uploadFromFile(tempFile.toAbsolutePath().toString(), true);
-
             log.info("Backup '{}' completado por '{}' ({} bytes).", fileName, executedBy, fileSize);
+
             return new BackupResultDTO(true, "Respaldo completado exitosamente",
                     fileName, blob.getBlobUrl(), fileSize, executedBy,
                     LocalDateTime.now().format(DISPLAY_FMT));
@@ -319,6 +348,16 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     }
 
     @Override
+    public void streamBackup(String fileName, java.io.OutputStream out) throws Exception {
+        BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
+        BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
+        if (!blob.exists()) throw new RuntimeException("Archivo no encontrado: " + fileName);
+        try (java.io.InputStream blobStream = blob.openInputStream()) {
+            blobStream.transferTo(out);
+        }
+    }
+
+    @Override
     public void deleteBackup(String fileName) {
         BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
         BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
@@ -370,6 +409,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         entry.setFrecuencia(dto.getFrecuencia());
         entry.setDiaSemana(dto.getDiaSemana());
         entry.setDiaMes(dto.getDiaMes());
+        entry.setMeses(dto.getMeses() != null ? dto.getMeses() : "*");
         entry.setHora(dto.getHora());
         entry.setMinuto(dto.getMinuto());
         final BackupScheduleEntry updated = scheduleRepository.save(entry);
@@ -384,16 +424,83 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         scheduleRepository.deleteById(id);
     }
 
+    // ─── Configuración ruta local ──────────────────────────────────────────────
+
+    @Override
+    public BackupLocalConfigDTO getLocalConfig() {
+        return localConfigRepository.findById(1)
+                .map(c -> new BackupLocalConfigDTO(
+                        c.getRuta(),
+                        c.getUsuario() != null ? c.getUsuario().getUserId() : null,
+                        c.getFechaConfiguracion() != null ? c.getFechaConfiguracion().format(DISPLAY_FMT) : null
+                ))
+                .orElse(null);
+    }
+
+    @Override
+    public BackupLocalConfigDTO saveLocalConfig(String ruta) {
+        BackupLocalConfig config = localConfigRepository.findById(1).orElse(new BackupLocalConfig());
+        config.setId(1);
+        config.setRuta(ruta);
+        config.setFechaConfiguracion(LocalDateTime.now());
+        UserContext ctx = UserContextHolder.getContext();
+        if (ctx != null && ctx.getUserId() != null) {
+            userRepository.findById(ctx.getUserId()).ifPresent(config::setUsuario);
+        }
+        BackupLocalConfig saved = localConfigRepository.save(config);
+        return new BackupLocalConfigDTO(
+                saved.getRuta(),
+                saved.getUsuario() != null ? saved.getUsuario().getUserId() : null,
+                saved.getFechaConfiguracion() != null ? saved.getFechaConfiguracion().format(DISPLAY_FMT) : null
+        );
+    }
+
+    @Override
+    public BackupBrowseDTO browseDirectory(String path) {
+        // Sin path → devuelve las raíces del sistema de archivos (C:\, D:\, / etc.)
+        if (path == null || path.isBlank()) {
+            List<String> roots = Arrays.stream(File.listRoots())
+                    .map(File::getAbsolutePath)
+                    .sorted()
+                    .collect(Collectors.toList());
+            return new BackupBrowseDTO("", null, roots);
+        }
+
+        Path dir = Path.of(path);
+        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+            throw new RuntimeException("Ruta no válida: " + path);
+        }
+
+        List<String> subdirs;
+        try (var stream = Files.list(dir)) {
+            subdirs = stream
+                    .filter(Files::isDirectory)
+                    .map(p -> p.getFileName().toString())
+                    .filter(name -> !name.startsWith("."))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            subdirs = List.of();
+        }
+
+        String parentPath = dir.getParent() != null ? dir.getParent().toString() : null;
+        return new BackupBrowseDTO(dir.toAbsolutePath().toString(), parentPath, subdirs);
+    }
+
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
     /** Genera la expresión cron a partir de los campos estructurados. */
     private String toCron(BackupScheduleEntry e) {
         return switch (e.getFrecuencia()) {
-            case "SEMANAL"  -> String.format("0 %d %d * * %s", e.getMinuto(), e.getHora(),
-                                e.getDiaSemana() != null ? e.getDiaSemana() : "SUN");
-            case "MENSUAL"  -> String.format("0 %d %d %d * *", e.getMinuto(), e.getHora(),
-                                e.getDiaMes()    != null ? e.getDiaMes()    : 1);
-            default          -> String.format("0 %d %d * * *",  e.getMinuto(), e.getHora()); // DIARIO
+            case "SEMANAL" -> String.format("0 %d %d * * %s",
+                    e.getMinuto(), e.getHora(),
+                    (e.getDiaSemana() != null && !e.getDiaSemana().isBlank()) ? e.getDiaSemana() : "MON");
+            case "MENSUAL" -> {
+                String dias  = (e.getDiaMes() != null && !e.getDiaMes().isBlank()) ? e.getDiaMes() : "1";
+                String meses = (e.getMeses()  != null && !e.getMeses().isBlank())  ? e.getMeses()  : "*";
+                yield String.format("0 %d %d %s %s *", e.getMinuto(), e.getHora(), dias, meses);
+            }
+            default -> String.format("0 %d %d * * *", e.getMinuto(), e.getHora());
         };
     }
 
@@ -402,7 +509,8 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
                 e.getId(),
                 e.getUsuario() != null ? e.getUsuario().getUserId() : null,
                 e.isHabilitado(), e.getFrecuencia(),
-                e.getDiaSemana(), e.getDiaMes(), e.getHora(), e.getMinuto(),
+                e.getDiaSemana(), e.getDiaMes(), e.getMeses(),
+                e.getHora(), e.getMinuto(),
                 e.getFechaUltimaEjecucion() != null ? e.getFechaUltimaEjecucion().format(DISPLAY_FMT) : null,
                 e.getResultadoUltimaEjecucion()
         );
@@ -414,6 +522,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         e.setFrecuencia(dto.getFrecuencia() != null ? dto.getFrecuencia() : "DIARIO");
         e.setDiaSemana(dto.getDiaSemana());
         e.setDiaMes(dto.getDiaMes());
+        e.setMeses(dto.getMeses() != null ? dto.getMeses() : "*");
         e.setHora(dto.getHora());
         e.setMinuto(dto.getMinuto());
         return e;
@@ -424,24 +533,9 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
      * Permite rollback: si pg_restore falla, se pueden restaurar los schemas originales.
      */
     private void renombrarSchemas() throws Exception {
-        String sql = """
-                DO $$
-                DECLARE r RECORD;
-                BEGIN
-                    FOR r IN
-                        SELECT nspname FROM pg_namespace
-                        WHERE nspname NOT LIKE 'pg_%'
-                          AND nspname NOT IN ('information_schema', 'public')
-                          AND nspname NOT LIKE '%_bak'
-                    LOOP
-                        EXECUTE 'ALTER SCHEMA ' || quote_ident(r.nspname)
-                             || ' RENAME TO ' || quote_ident(r.nspname || '_bak');
-                    END LOOP;
-                END $$;
-                """;
-        try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.Statement  stmt = conn.createStatement()) {
-            stmt.execute(sql);
+        try (java.sql.Connection        conn = dataSource.getConnection();
+             java.sql.CallableStatement cs   = conn.prepareCall("CALL general.sp_bk_renombrar_schemas()")) {
+            cs.execute();
             log.info("Schemas renombrados a _bak — pg_restore los recreará desde el backup.");
         }
     }
@@ -451,32 +545,9 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
      * y renombra los _bak de vuelta a sus nombres originales.
      */
     private void rollbackSchemas() throws Exception {
-        String sql = """
-                DO $$
-                DECLARE r RECORD;
-                BEGIN
-                    -- Elimina schemas parciales del restore fallido
-                    FOR r IN
-                        SELECT nspname FROM pg_namespace
-                        WHERE nspname NOT LIKE 'pg_%'
-                          AND nspname NOT IN ('information_schema', 'public')
-                          AND nspname NOT LIKE '%_bak'
-                    LOOP
-                        EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.nspname) || ' CASCADE';
-                    END LOOP;
-                    -- Renombra _bak de vuelta a los nombres originales
-                    FOR r IN
-                        SELECT nspname FROM pg_namespace
-                        WHERE nspname LIKE '%_bak'
-                    LOOP
-                        EXECUTE 'ALTER SCHEMA ' || quote_ident(r.nspname)
-                             || ' RENAME TO ' || quote_ident(replace(r.nspname, '_bak', ''));
-                    END LOOP;
-                END $$;
-                """;
-        try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.Statement  stmt = conn.createStatement()) {
-            stmt.execute(sql);
+        try (java.sql.Connection        conn = dataSource.getConnection();
+             java.sql.CallableStatement cs   = conn.prepareCall("CALL general.sp_bk_rollback_schemas()")) {
+            cs.execute();
             log.info("Rollback de schemas completado — BD restaurada al estado anterior.");
         }
     }
@@ -485,21 +556,9 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
      * Tras restore exitoso: elimina los schemas _bak que ya no se necesitan.
      */
     private void eliminarSchemasBak() throws Exception {
-        String sql = """
-                DO $$
-                DECLARE r RECORD;
-                BEGIN
-                    FOR r IN
-                        SELECT nspname FROM pg_namespace
-                        WHERE nspname LIKE '%_bak'
-                    LOOP
-                        EXECUTE 'DROP SCHEMA IF EXISTS ' || quote_ident(r.nspname) || ' CASCADE';
-                    END LOOP;
-                END $$;
-                """;
-        try (java.sql.Connection conn = dataSource.getConnection();
-             java.sql.Statement  stmt = conn.createStatement()) {
-            stmt.execute(sql);
+        try (java.sql.Connection        conn = dataSource.getConnection();
+             java.sql.CallableStatement cs   = conn.prepareCall("CALL general.sp_bk_limpiar_schemas_bak()")) {
+            cs.execute();
             log.info("Schemas _bak eliminados tras restauración exitosa.");
         }
     }
