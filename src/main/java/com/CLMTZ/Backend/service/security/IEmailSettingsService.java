@@ -10,4 +10,8 @@ public interface IEmailSettingsService {
     List<EmailSettingsRequestDTO> listEmailSettings(String filter, Boolean state);
 
     SpResponseDTO createEmail(EmailSettingsRequestDTO emailDTO);
+
+    SpResponseDTO updateEmail(EmailSettingsRequestDTO emailDTO);
+
+    EmailSettingsRequestDTO getEmailById(Integer idConfiguracionCorreo);
 }

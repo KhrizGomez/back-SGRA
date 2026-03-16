@@ -28,7 +28,6 @@ import com.CLMTZ.Backend.model.general.User;
 import com.CLMTZ.Backend.repository.academic.ICareerRepository;
 import com.CLMTZ.Backend.repository.academic.IClassRepository;
 import com.CLMTZ.Backend.repository.academic.ICoordinationRepository;
-import com.CLMTZ.Backend.repository.academic.IStudentsRepository;
 import com.CLMTZ.Backend.repository.academic.ITeachingRepository;
 import com.CLMTZ.Backend.repository.general.IUserRepository;
 import com.CLMTZ.Backend.repository.security.custom.ICredentialRepository;
@@ -55,7 +54,6 @@ public class CoordinationServiceImpl implements ICoordinationService {
     private final DynamicDataSourceService dynamicDataSourceService;
     private final IClassRepository classRepository;
     private final ITeachingRepository teachingRepository;
-    private final IStudentsRepository studentsRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
