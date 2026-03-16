@@ -25,6 +25,61 @@ El submódulo de respaldos permite crear, programar y restaurar copias de seguri
 
 ---
 
+## Regla 3-2-1 y copias locales
+
+El sistema implementa la **regla 3-2-1 de respaldos**:
+
+| Copia | Dónde | Siempre disponible |
+|---|---|---|
+| **1 — Original** | Base de datos PostgreSQL en producción | ✅ |
+| **2 — Offsite** | Azure Blob Storage (`backups-sgra`) | ✅ |
+| **3 — Local** | Disco local de cada usuario (browser) | Cuando la pestaña está abierta |
+
+### Por qué cada usuario configura su propia carpeta local
+
+La copia local se gestiona **en el browser de cada usuario** mediante la [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) del navegador. Cada usuario selecciona su carpeta una sola vez — queda guardada en **IndexedDB** del browser y persiste entre sesiones (incluso al apagar el equipo).
+
+Este diseño es intencional por dos razones:
+
+1. **Limitación técnica del browser**: la File System Access API no expone la ruta absoluta de una carpeta al servidor. Solo el browser del usuario puede escribir en el sistema de archivos de su propia máquina.
+
+2. **Más redundancia**: si varios usuarios tienen la app abierta, cada uno recibe automáticamente una copia local en su propio equipo. Esto da mayor distribución geográfica y de dispositivos que una única ruta de servidor.
+
+### Flujo de copia local (frontend)
+
+```
+Usuario configura carpeta (showDirectoryPicker)
+         │
+         ▼ guardado en IndexedDB del browser
+
+Backup creado (manual o automático detectado por polling)
+         │
+         ▼
+GET /api/admin/backup/stream/{fileName}   ← backend proxea desde Azure (evita CORS)
+         │
+         ▼
+FileSystemDirectoryHandle.getFileHandle() + writable.write(blob)
+         │
+         ▼
+Archivo guardado en carpeta local del usuario ✅
+```
+
+### Limitación conocida
+
+Si **ningún usuario tiene la pestaña abierta** cuando corre un respaldo automático, no se genera copia local ese momento. La copia de Azure siempre se crea independientemente. La próxima vez que cualquier usuario abra la app, el polling de 15 s detectará los backups nuevos y los guardará localmente.
+
+### Endpoint de streaming (proxy anti-CORS)
+
+Para evitar que el browser haga `fetch()` directo a Azure (bloqueado por CORS), se agregó un endpoint de streaming en el backend:
+
+```
+GET /api/admin/backup/stream/{fileName}
+```
+
+El backend descarga el blob de Azure y lo retransmite como `application/octet-stream`. El frontend usa este endpoint (con autenticación Angular HttpClient) en lugar de la URL SAS directa.
+
+---
+
 ## Clases principales
 
 | Clase | Rol |

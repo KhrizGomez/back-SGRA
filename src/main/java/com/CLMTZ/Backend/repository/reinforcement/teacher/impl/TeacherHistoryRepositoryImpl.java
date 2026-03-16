@@ -33,80 +33,43 @@ public class TeacherHistoryRepositoryImpl implements TeacherHistoryRepository {
      */
     @Override
     public TeacherSessionHistoryPageDTO getSessionHistory(Integer userId, Integer page, Integer size) {
-        int offset = (page - 1) * size;
-
-        String countSql = "SELECT COUNT(DISTINCT rp.idrefuerzoprogramado) " +
-                "FROM reforzamiento.tbrefuerzosprogramados rp " +
-                "JOIN reforzamiento.tbestadosrefuerzosprogramados est ON rp.idestadorefuerzoprogramado = est.idestadorefuerzoprogramado " +
-                "JOIN reforzamiento.tbdetallesrefuerzosprogramadas d ON rp.idrefuerzoprogramado = d.idrefuerzoprogramado " +
-                "JOIN reforzamiento.tbsolicitudesrefuerzos sr ON d.idsolicitudrefuerzo = sr.idsolicitudrefuerzo " +
-                "JOIN academico.tbdocentes doc ON sr.iddocente = doc.iddocente " +
-                "WHERE doc.idusuario = :userId " +
-                "AND LOWER(est.estadorefuerzoprogramado) = 'realizado'";
-
-        String dataSql = "SELECT DISTINCT ON (rp.idrefuerzoprogramado) " +
-                "rp.idrefuerzoprogramado AS id_programado, " +
-                "a.asignatura AS asignatura, " +
-                "rp.fechaprogramadarefuerzo AS fecha_programada, " +
-                "m.modalidad, " +
-                "rp.duracionestimado AS duracion_estimada, " +
-                "CONCAT(fh.horainicio::text, ' - ', fh.horariofin::text) AS franja_horaria, " +
-                "est.estadorefuerzoprogramado AS estado, " +
-                "ts.tiposesion AS tipo_sesion, " +
-                "(SELECT COUNT(*) FROM reforzamiento.tbdetallesrefuerzosprogramadas dd " +
-                " WHERE dd.idrefuerzoprogramado = rp.idrefuerzoprogramado) AS num_sesiones, " +
-                "(SELECT COUNT(*) FROM reforzamiento.tbasistenciasrefuerzos att " +
-                " WHERE att.idrefuerzoprogramado = rp.idrefuerzoprogramado) AS total_participantes, " +
-                "(SELECT COUNT(*) FROM reforzamiento.tbasistenciasrefuerzos att " +
-                " WHERE att.idrefuerzoprogramado = rp.idrefuerzoprogramado AND att.asistencia = TRUE) AS asistentes, " +
-                "(SELECT COUNT(*) FROM reforzamiento.tbrecursosrefuerzosprogramados r " +
-                " WHERE r.idrefuerzoprogramado = rp.idrefuerzoprogramado " +
-                " AND r.urlarchivorefuerzoprogramado NOT LIKE 'virtual_link:%') AS num_recursos " +
-                "FROM reforzamiento.tbrefuerzosprogramados rp " +
-                "JOIN reforzamiento.tbestadosrefuerzosprogramados est ON rp.idestadorefuerzoprogramado = est.idestadorefuerzoprogramado " +
-                "JOIN academico.tbmodalidades m ON rp.idmodalidad = m.idmodalidad " +
-                "JOIN academico.tbfranjashorarias fh ON rp.idfranjahoraria = fh.idfranjahoraria " +
-                "JOIN reforzamiento.tbtipossesiones ts ON rp.idtiposesion = ts.idtiposesion " +
-                "JOIN reforzamiento.tbdetallesrefuerzosprogramadas d ON rp.idrefuerzoprogramado = d.idrefuerzoprogramado " +
-                "JOIN reforzamiento.tbsolicitudesrefuerzos sr ON d.idsolicitudrefuerzo = sr.idsolicitudrefuerzo " +
-                "JOIN academico.tbasignaturas a ON sr.idasignatura = a.idasignatura " +
-                "JOIN academico.tbdocentes doc ON sr.iddocente = doc.iddocente " +
-                "WHERE doc.idusuario = :userId " +
-                "AND LOWER(est.estadorefuerzoprogramado) = 'realizado' " +
-                "ORDER BY rp.idrefuerzoprogramado DESC, rp.fechaprogramadarefuerzo DESC " +
-                "LIMIT :size OFFSET :offset";
-
-        MapSqlParameterSource params = new MapSqlParameterSource();
+     MapSqlParameterSource params = new MapSqlParameterSource();
         params.addValue("userId", userId);
+        params.addValue("page", page);
         params.addValue("size", size);
-        params.addValue("offset", offset);
 
-        Long total = getJdbcTemplate().queryForObject(countSql, params, Long.class);
+        Long total = getJdbcTemplate().queryForObject(
+                "SELECT reforzamiento.fn_sl_teacher_session_history_count(:userId)",
+                params,
+                Long.class);
         List<TeacherSessionHistoryItemDTO> items = new ArrayList<>();
 
-        getJdbcTemplate().query(dataSql, params, (rs) -> {
+        getJdbcTemplate().query(
+                "SELECT * FROM reforzamiento.fn_sl_teacher_session_history_page(:userId, :page, :size)",
+                params,
+                (rs) -> {
             TeacherSessionHistoryItemDTO item = new TeacherSessionHistoryItemDTO();
-            item.setScheduledId(rs.getInt("id_programado"));
-            item.setSubjectName(rs.getString("asignatura"));
+            item.setScheduledId(rs.getInt("scheduled_id"));
+            item.setSubjectName(rs.getString("subject_name"));
 
-            Date date = rs.getDate("fecha_programada");
+            Date date = rs.getDate("scheduled_date");
             item.setScheduledDate(date != null ? date.toString() : null);
 
             item.setModality(rs.getString("modalidad"));
 
-            Time duration = rs.getTime("duracion_estimada");
+            Time duration = rs.getTime("estimated_duration");
             item.setEstimatedDuration(duration != null ? duration.toString() : null);
 
-            item.setTimeSlot(rs.getString("franja_horaria"));
-            item.setStatusName(rs.getString("estado"));
-            item.setSessionType(rs.getString("tipo_sesion"));
-            item.setStudentCount(rs.getInt("num_sesiones"));
-            int total_ = rs.getInt("total_participantes");
-            int attended_ = rs.getInt("asistentes");
+            item.setTimeSlot(rs.getString("time_slot"));
+            item.setStatusName(rs.getString("status_name"));
+            item.setSessionType(rs.getString("session_type"));
+            item.setStudentCount(rs.getInt("request_count"));
+            int total_ = rs.getInt("total_participants");
+            int attended_ = rs.getInt("attended_count");
             item.setTotalParticipants(total_);
             item.setAttendedCount(attended_);
             item.setAttendancePercentage(total_ > 0 ? Math.round((attended_ * 100.0 / total_) * 10.0) / 10.0 : 0.0);
-            item.setResourceCount(rs.getInt("num_recursos"));
+            item.setResourceCount(rs.getInt("resource_count"));
             items.add(item);
         });
 
@@ -115,44 +78,24 @@ public class TeacherHistoryRepositoryImpl implements TeacherHistoryRepository {
 
     @Override
     public TeacherSessionHistoryDetailDTO getSessionHistoryDetail(Integer userId, Integer scheduledId) {
-
-        // 1. Base session info (also verifies teacher ownership)
-        String baseSql = "SELECT DISTINCT ON (rp.idrefuerzoprogramado) " +
-                "rp.idrefuerzoprogramado AS scheduled_id, " +
-                "a.asignatura AS subject_name, " +
-                "rp.fechaprogramadarefuerzo AS scheduled_date, " +
-                "m.modalidad, " +
-                "CONCAT(fh.horainicio::text, ' - ', fh.horariofin::text) AS franja_horaria, " +
-                "ts.tiposesion AS session_type, " +
-                "est.estadorefuerzoprogramado AS status_name, " +
-                "rp.duracionestimado AS duracion_estimada " +
-                "FROM reforzamiento.tbrefuerzosprogramados rp " +
-                "JOIN reforzamiento.tbestadosrefuerzosprogramados est ON rp.idestadorefuerzoprogramado = est.idestadorefuerzoprogramado " +
-                "JOIN academico.tbmodalidades m ON rp.idmodalidad = m.idmodalidad " +
-                "JOIN academico.tbfranjashorarias fh ON rp.idfranjahoraria = fh.idfranjahoraria " +
-                "JOIN reforzamiento.tbtipossesiones ts ON rp.idtiposesion = ts.idtiposesion " +
-                "JOIN reforzamiento.tbdetallesrefuerzosprogramadas d ON rp.idrefuerzoprogramado = d.idrefuerzoprogramado " +
-                "JOIN reforzamiento.tbsolicitudesrefuerzos sr ON d.idsolicitudrefuerzo = sr.idsolicitudrefuerzo " +
-                "JOIN academico.tbasignaturas a ON sr.idasignatura = a.idasignatura " +
-                "JOIN academico.tbdocentes doc ON sr.iddocente = doc.iddocente " +
-                "WHERE rp.idrefuerzoprogramado = :scheduledId AND doc.idusuario = :userId";
-
+        List<TeacherSessionHistoryDetailDTO> baseResult = new ArrayList<>();
         MapSqlParameterSource baseParams = new MapSqlParameterSource();
         baseParams.addValue("scheduledId", scheduledId);
         baseParams.addValue("userId", userId);
-
-        List<TeacherSessionHistoryDetailDTO> baseResult = new ArrayList<>();
-        getJdbcTemplate().query(baseSql, baseParams, rs -> {
+        getJdbcTemplate().query(
+                "SELECT * FROM reforzamiento.fn_sl_teacher_session_history_detail_base(:userId, :scheduledId)",
+                baseParams,
+                rs -> {
             TeacherSessionHistoryDetailDTO dto = new TeacherSessionHistoryDetailDTO();
             dto.setScheduledId(rs.getInt("scheduled_id"));
             dto.setSubjectName(rs.getString("subject_name"));
             Date d = rs.getDate("scheduled_date");
             dto.setScheduledDate(d != null ? d.toString() : null);
             dto.setModality(rs.getString("modalidad"));
-            dto.setTimeSlot(rs.getString("franja_horaria"));
+            dto.setTimeSlot(rs.getString("time_slot"));
             dto.setSessionType(rs.getString("session_type"));
             dto.setStatusName(rs.getString("status_name"));
-            Time dur = rs.getTime("duracion_estimada");
+            Time dur = rs.getTime("estimated_duration");
             dto.setEstimatedDuration(dur != null ? dur.toString().substring(0, 5) : null);
             baseResult.add(dto);
         });
@@ -164,28 +107,21 @@ public class TeacherHistoryRepositoryImpl implements TeacherHistoryRepository {
         TeacherSessionHistoryDetailDTO detail = baseResult.get(0);
 
         // 2. Performed info (observation + actual duration)
-        String performedSql = "SELECT observacion, duracion " +
-                "FROM reforzamiento.tbrefuerzosrealizados " +
-                "WHERE idrefuerzoprogramado = :scheduledId " +
-                "ORDER BY idrefuerzorealizado DESC LIMIT 1";
-        getJdbcTemplate().query(performedSql, new MapSqlParameterSource("scheduledId", scheduledId), rs -> {
+        getJdbcTemplate().query(
+                "SELECT * FROM reforzamiento.fn_sl_teacher_session_history_detail_performed(:scheduledId)",
+                new MapSqlParameterSource("scheduledId", scheduledId),
+                rs -> {
             detail.setObservation(rs.getString("observacion"));
             Time actualDur = rs.getTime("duracion");
             detail.setActualDuration(actualDur != null ? actualDur.toString().substring(0, 5) : null);
         });
 
         // 3. Attendance per student
-        String attendanceSql = "SELECT p.idparticipante, " +
-                "CONCAT(u.nombres, ' ', u.apellidos) AS student_name, " +
-                "a.asistencia " +
-                "FROM reforzamiento.tbasistenciasrefuerzos a " +
-                "JOIN reforzamiento.tbparticipantes p ON a.idparticipante = p.idparticipante " +
-                "JOIN academico.tbestudiantes e ON p.idestudiante = e.idestudiante " +
-                "JOIN general.tbusuarios u ON e.idusuario = u.idusuario " +
-                "WHERE a.idrefuerzoprogramado = :scheduledId " +
-                "ORDER BY u.apellidos, u.nombres";
         List<AttendanceStudentDTO> attendanceList = new ArrayList<>();
-        getJdbcTemplate().query(attendanceSql, new MapSqlParameterSource("scheduledId", scheduledId), rs -> {
+        getJdbcTemplate().query(
+                "SELECT * FROM reforzamiento.fn_sl_teacher_session_history_detail_attendance(:scheduledId)",
+                new MapSqlParameterSource("scheduledId", scheduledId),
+                rs -> {
             attendanceList.add(new AttendanceStudentDTO(
                     rs.getInt("idparticipante"),
                     rs.getString("student_name"),
@@ -199,23 +135,19 @@ public class TeacherHistoryRepositoryImpl implements TeacherHistoryRepository {
         detail.setAttendancePercentage(total > 0 ? Math.round((attended * 100.0 / total) * 10.0) / 10.0 : 0.0);
 
         // 4. File resources (exclude virtual_link entries)
-        String resourcesSql = "SELECT urlarchivorefuerzoprogramado " +
-                "FROM reforzamiento.tbrecursosrefuerzosprogramados " +
-                "WHERE idrefuerzoprogramado = :scheduledId " +
-                "AND urlarchivorefuerzoprogramado NOT LIKE 'virtual_link:%'";
         List<String> resources = getJdbcTemplate().queryForList(
-                resourcesSql, new MapSqlParameterSource("scheduledId", scheduledId), String.class);
+                "SELECT * FROM reforzamiento.fn_sl_teacher_session_history_detail_resources(:scheduledId)",
+                new MapSqlParameterSource("scheduledId", scheduledId),
+                String.class);
         detail.setResources(resources);
 
         // 5. Virtual link
-        String virtualLinkSql = "SELECT urlarchivorefuerzoprogramado " +
-                "FROM reforzamiento.tbrecursosrefuerzosprogramados " +
-                "WHERE idrefuerzoprogramado = :scheduledId " +
-                "AND urlarchivorefuerzoprogramado LIKE 'virtual_link:%' LIMIT 1";
         List<String> vl = getJdbcTemplate().queryForList(
-                virtualLinkSql, new MapSqlParameterSource("scheduledId", scheduledId), String.class);
+                "SELECT * FROM reforzamiento.fn_sl_teacher_session_history_detail_virtual_links(:scheduledId)",
+                new MapSqlParameterSource("scheduledId", scheduledId),
+                String.class);
         if (!vl.isEmpty()) {
-            detail.setVirtualLink(vl.get(0).replace("virtual_link:", "").trim());
+            detail.setVirtualLink(vl.get(0));
         }
 
         return detail;

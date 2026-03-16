@@ -11,9 +11,10 @@ public class BackupScheduleEntryDTO {
     private Integer id;
     private Integer idusuario;
     private boolean habilitado;
-    private String  frecuencia;               // DIARIO | SEMANAL | MENSUAL
-    private String  diaSemana;                // SUN, MON, ... (solo SEMANAL)
-    private Integer diaMes;                   // 1-31   (solo MENSUAL)
+    private String  frecuencia;
+    private String  diaSemana;
+    private String  diaMes;
+    private String  meses;
     private int     hora;
     private int     minuto;
     private String  fechaUltimaEjecucion;
