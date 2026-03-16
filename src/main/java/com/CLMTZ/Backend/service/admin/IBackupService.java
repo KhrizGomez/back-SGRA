@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.service.admin;
 
+import com.CLMTZ.Backend.dto.admin.BackupBrowseDTO;
 import com.CLMTZ.Backend.dto.admin.BackupHistoryItemDTO;
 import com.CLMTZ.Backend.dto.admin.BackupLocalConfigDTO;
 import com.CLMTZ.Backend.dto.admin.BackupResultDTO;
@@ -26,4 +27,5 @@ public interface IBackupService {
     // Configuración ruta local
     BackupLocalConfigDTO getLocalConfig();
     BackupLocalConfigDTO saveLocalConfig(String ruta);
+    BackupBrowseDTO browseDirectory(String path);
 }

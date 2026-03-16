@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.controller.admin;
 
+import com.CLMTZ.Backend.dto.admin.BackupBrowseDTO;
 import com.CLMTZ.Backend.dto.admin.BackupHistoryItemDTO;
 import com.CLMTZ.Backend.dto.admin.BackupLocalConfigDTO;
 import com.CLMTZ.Backend.dto.admin.BackupResultDTO;
@@ -90,6 +91,15 @@ public class BackupController {
         String ruta = body.get("ruta");
         if (ruta == null || ruta.isBlank()) return ResponseEntity.badRequest().build();
         return ResponseEntity.ok(backupService.saveLocalConfig(ruta.trim()));
+    }
+
+    @GetMapping("/browse")
+    public ResponseEntity<BackupBrowseDTO> browse(@RequestParam(required = false) String path) {
+        try {
+            return ResponseEntity.ok(backupService.browseDirectory(path));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     // ─── Programaciones automáticas ────────────────────────────────────────────

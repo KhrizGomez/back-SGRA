@@ -1,6 +1,7 @@
 package com.CLMTZ.Backend.service.admin.impl;
 
 import com.CLMTZ.Backend.config.UserContextHolder;
+import com.CLMTZ.Backend.dto.admin.BackupBrowseDTO;
 import com.CLMTZ.Backend.dto.admin.BackupHistoryItemDTO;
 import com.CLMTZ.Backend.dto.admin.BackupLocalConfigDTO;
 import com.CLMTZ.Backend.dto.admin.BackupResultDTO;
@@ -30,9 +31,11 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -406,6 +409,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         entry.setFrecuencia(dto.getFrecuencia());
         entry.setDiaSemana(dto.getDiaSemana());
         entry.setDiaMes(dto.getDiaMes());
+        entry.setMeses(dto.getMeses() != null ? dto.getMeses() : "*");
         entry.setHora(dto.getHora());
         entry.setMinuto(dto.getMinuto());
         final BackupScheduleEntry updated = scheduleRepository.save(entry);
@@ -451,16 +455,52 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         );
     }
 
+    @Override
+    public BackupBrowseDTO browseDirectory(String path) {
+        // Sin path → devuelve las raíces del sistema de archivos (C:\, D:\, / etc.)
+        if (path == null || path.isBlank()) {
+            List<String> roots = Arrays.stream(File.listRoots())
+                    .map(File::getAbsolutePath)
+                    .sorted()
+                    .collect(Collectors.toList());
+            return new BackupBrowseDTO("", null, roots);
+        }
+
+        Path dir = Path.of(path);
+        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+            throw new RuntimeException("Ruta no válida: " + path);
+        }
+
+        List<String> subdirs;
+        try (var stream = Files.list(dir)) {
+            subdirs = stream
+                    .filter(Files::isDirectory)
+                    .map(p -> p.getFileName().toString())
+                    .filter(name -> !name.startsWith("."))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            subdirs = List.of();
+        }
+
+        String parentPath = dir.getParent() != null ? dir.getParent().toString() : null;
+        return new BackupBrowseDTO(dir.toAbsolutePath().toString(), parentPath, subdirs);
+    }
+
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
     /** Genera la expresión cron a partir de los campos estructurados. */
     private String toCron(BackupScheduleEntry e) {
         return switch (e.getFrecuencia()) {
-            case "SEMANAL"  -> String.format("0 %d %d * * %s", e.getMinuto(), e.getHora(),
-                                e.getDiaSemana() != null ? e.getDiaSemana() : "SUN");
-            case "MENSUAL"  -> String.format("0 %d %d %d * *", e.getMinuto(), e.getHora(),
-                                e.getDiaMes()    != null ? e.getDiaMes()    : 1);
-            default          -> String.format("0 %d %d * * *",  e.getMinuto(), e.getHora()); // DIARIO
+            case "SEMANAL" -> String.format("0 %d %d * * %s",
+                    e.getMinuto(), e.getHora(),
+                    (e.getDiaSemana() != null && !e.getDiaSemana().isBlank()) ? e.getDiaSemana() : "MON");
+            case "MENSUAL" -> {
+                String dias  = (e.getDiaMes() != null && !e.getDiaMes().isBlank()) ? e.getDiaMes() : "1";
+                String meses = (e.getMeses()  != null && !e.getMeses().isBlank())  ? e.getMeses()  : "*";
+                yield String.format("0 %d %d %s %s *", e.getMinuto(), e.getHora(), dias, meses);
+            }
+            default -> String.format("0 %d %d * * *", e.getMinuto(), e.getHora());
         };
     }
 
@@ -469,7 +509,8 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
                 e.getId(),
                 e.getUsuario() != null ? e.getUsuario().getUserId() : null,
                 e.isHabilitado(), e.getFrecuencia(),
-                e.getDiaSemana(), e.getDiaMes(), e.getHora(), e.getMinuto(),
+                e.getDiaSemana(), e.getDiaMes(), e.getMeses(),
+                e.getHora(), e.getMinuto(),
                 e.getFechaUltimaEjecucion() != null ? e.getFechaUltimaEjecucion().format(DISPLAY_FMT) : null,
                 e.getResultadoUltimaEjecucion()
         );
@@ -481,6 +522,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         e.setFrecuencia(dto.getFrecuencia() != null ? dto.getFrecuencia() : "DIARIO");
         e.setDiaSemana(dto.getDiaSemana());
         e.setDiaMes(dto.getDiaMes());
+        e.setMeses(dto.getMeses() != null ? dto.getMeses() : "*");
         e.setHora(dto.getHora());
         e.setMinuto(dto.getMinuto());
         return e;

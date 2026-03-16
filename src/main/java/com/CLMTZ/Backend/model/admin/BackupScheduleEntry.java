@@ -31,13 +31,17 @@ public class BackupScheduleEntry {
     @Column(name = "frecuencia", length = 10, nullable = false)
     private String frecuencia = "DIARIO";
 
-    /** Solo para SEMANAL: SUN, MON, TUE, WED, THU, FRI, SAT */
-    @Column(name = "dia_semana", length = 10)
+    /** Solo para SEMANAL: uno o varios días separados por coma ("MON,WED,FRI") */
+    @Column(name = "dia_semana", length = 200)
     private String diaSemana;
 
-    /** Solo para MENSUAL: 1-31 */
-    @Column(name = "dia_mes")
-    private Integer diaMes;
+    /** Solo para MENSUAL: uno o varios días separados por coma ("1,15,28") */
+    @Column(name = "dia_mes", length = 200)
+    private String diaMes;
+
+    /** Solo para MENSUAL: meses separados por coma ("1,3,6,12") o "*" para todos */
+    @Column(name = "meses", length = 200)
+    private String meses = "*";
 
     @Column(name = "hora", nullable = false)
     private int hora = 2;
