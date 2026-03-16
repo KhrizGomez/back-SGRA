@@ -229,8 +229,7 @@ public class JavaFallbackValidator {
         String[] parts = raw.split(",");
         for (String part : parts) {
             String digits = part.trim().replaceAll("\\D", "");
-            boolean isValid = digits.length() == 10 && digits.startsWith("0");
-            if (!isValid) {
+            if (!digits.isEmpty() && digits.length() != 10) {
                 AIValidationIssue.Severity severity = required
                         ? AIValidationIssue.Severity.ERROR
                         : AIValidationIssue.Severity.WARNING;
@@ -238,8 +237,8 @@ public class JavaFallbackValidator {
                         .row(rowNum)
                         .field(fieldName)
                         .severity(severity)
-                        .message("El telefono '" + part.trim() + "' en la fila " + rowNum + " no tiene 10 digitos validos.")
-                        .suggestion("Use un telefono de 10 digitos iniciando con 0, por ejemplo 0999999999.")
+                        .message("El telefono '" + part.trim() + "' en la fila " + rowNum + " no tiene 10 digitos.")
+                        .suggestion("Use un telefono de 10 digitos, por ejemplo 0999999999.")
                         .source("FALLBACK")
                         .build());
             }

@@ -24,9 +24,9 @@ REGLAS DE VALIDACION:
 
 4. "telefono1": obligatorio.
    Puede contener 1 o 2 numeros separados por coma (ej: "0987654321" o "0987654321, 0999999999").
-   Cada numero debe tener exactamente 10 digitos y puede iniciar con 09 o cualquier 0X.
+   Validacion: cada numero debe tener exactamente 10 digitos. No valides el prefijo ni el formato, solo la cantidad de digitos.
 
-5. "telefono2": opcional. Si existe, aplica las mismas reglas que telefono1 (1 o 2 numeros separados por coma).
+5. "telefono2": opcional. Si existe, aplica las mismas reglas que telefono1.
 
 DETECTAR TAMBIEN:
 - Filas completamente duplicadas o estudiantes duplicados por "identificacion".
