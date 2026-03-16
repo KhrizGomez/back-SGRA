@@ -129,7 +129,6 @@ public class CoordinationServiceImpl implements ICoordinationService {
                         if (userOpt.isPresent()) {
                             if (accessRepository.existsByUser_UserId(userOpt.get().getUserId())) {
                                 log.info("Credenciales ya existen para estudiante '{}'. Se omite creación y email.", nombreCompleto);
-                                resultados.add("  → Aviso credenciales: ya existen (no se envió email)");
                                 continue;
                             }
                             // rol → Estudiante (por nombre, no por ID)
@@ -138,19 +137,15 @@ public class CoordinationServiceImpl implements ICoordinationService {
                             if (Boolean.TRUE.equals(credResult.getSuccess())) {
                                 log.info("Credenciales creadas para estudiante '{}': {}",
                                         nombreCompleto, credResult.getMessage());
-                                resultados.add("  → Credenciales [" + nombreCompleto + "]: " + credResult.getMessage());
-
                                 enviarEmailCredenciales(
                                         fila.getCorreo(),
                                         nombreCompleto,
                                         credResult.getMessage(),
-                                        fila.getIdentificacion(),
-                                        resultados
+                                        fila.getIdentificacion()
                                 );
                             } else {
                                 log.warn("Error al crear credenciales para estudiante '{}': {}",
                                         nombreCompleto, credResult.getMessage());
-                                resultados.add("  → Aviso credenciales [" + nombreCompleto + "]: " + credResult.getMessage());
                             }
                         }
                     } catch (Exception ce) {
@@ -205,7 +200,6 @@ public class CoordinationServiceImpl implements ICoordinationService {
                             User docente = userOpt.get();
                             if (accessRepository.existsByUser_UserId(docente.getUserId())) {
                                 log.info("Credenciales ya existen para docente '{}'. Se omite creación y email.", nombreRef);
-                                resultados.add("  → Aviso credenciales: ya existen (no se envió email)");
                             } else {
                                 // rol → Docente (por nombre, no por ID)
                                 SpResponseDTO credResult = credentialRepository.createNewUserCredentials(
@@ -213,19 +207,15 @@ public class CoordinationServiceImpl implements ICoordinationService {
                                 if (Boolean.TRUE.equals(credResult.getSuccess())) {
                                     log.info("Credenciales creadas para docente '{}': {}",
                                             nombreRef, credResult.getMessage());
-                                    resultados.add("  → Credenciales [" + nombreRef + "]: " + credResult.getMessage());
-
                                     enviarEmailCredenciales(
                                             docente.getEmail(),
                                             nombreRef,
                                             credResult.getMessage(),
-                                            docente.getIdentification(),
-                                            resultados
+                                            docente.getIdentification()
                                     );
                                 } else {
                                     log.warn("Error al crear credenciales para docente '{}': {}",
                                             nombreRef, credResult.getMessage());
-                                    resultados.add("  → Aviso credenciales [" + nombreRef + "]: " + credResult.getMessage());
                                 }
                             }
 
@@ -442,11 +432,10 @@ public class CoordinationServiceImpl implements ICoordinationService {
      * Usa el servicio general de correo que obtiene la config activa automáticamente.
      */
     private void enviarEmailCredenciales(String correoDestino, String nombreCompleto,
-                                          String mensajeSP, String identificador,
-                                          List<String> resultados) {
+                                          String mensajeSP, String identificador) {
         try {
             if (correoDestino == null || correoDestino.isBlank()) {
-                resultados.add("  → Email: No se envió (correo destino vacío)");
+                log.warn("Email no enviado para '{}': correo destino vacío.", nombreCompleto);
                 return;
             }
 
@@ -455,11 +444,10 @@ public class CoordinationServiceImpl implements ICoordinationService {
             String body = construirEmailCredenciales(nombreCompleto, username, identificador);
 
             emailService.sendEmailAsync(correoDestino, subject, body);
-            resultados.add("  → Email enviando a: " + correoDestino + " (en segundo plano)");
+            log.info("Email de credenciales enviando en segundo plano a: {}", correoDestino);
 
         } catch (Exception e) {
             log.error("Error al enviar email de credenciales a {}: {}", correoDestino, e.getMessage());
-            resultados.add("  → Error email: " + e.getMessage());
         }
     }
 

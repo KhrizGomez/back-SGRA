@@ -66,7 +66,7 @@ public class ExcelHelper {
             List<StudentLoadDTO> estudiantes = new ArrayList<>();
 
             // Datos empiezan en fila 3 (índice 3), filas 0-2 son encabezados
-            for (int i = 3; i < sheet.getPhysicalNumberOfRows(); i++) {
+                for (int i = 3; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
 
@@ -643,7 +643,7 @@ public class ExcelHelper {
             int count = 0;
             
             // Datos empiezan en fila 3 (índice 3)
-            for (int i = 3; i < sheet.getPhysicalNumberOfRows(); i++) {
+            for (int i = 3; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
                 
@@ -676,7 +676,7 @@ public class ExcelHelper {
             int added = 0;
 
             // Datos empiezan en fila 3 (índice 3), filas 0-2 son encabezados
-            for (int i = 3; i < sheet.getPhysicalNumberOfRows() && added < limit; i++) {
+            for (int i = 3; i <= sheet.getLastRowNum() && added < limit; i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
 
