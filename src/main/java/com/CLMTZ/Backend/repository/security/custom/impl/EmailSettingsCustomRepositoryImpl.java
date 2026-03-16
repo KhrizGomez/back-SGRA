@@ -109,8 +109,23 @@ public class EmailSettingsCustomRepositoryImpl implements IEmailSettingsCustomRe
     public EmailSettingsRequestDTO getEmailById(Integer idConfiguracionCorreo) {
         String query = "Select * from seguridad.fn_sl_up_configuracioncorreo(:p_idconfiguracioncorreo)";
 
-        MapSqlParameterSource params = new MapSqlParameterSource().addValue("p_idconfiguracioncorreo", idConfiguracionCorreo);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("p_idconfiguracioncorreo", idConfiguracionCorreo);
 
-        return dynamicDataSourceService.getJdbcTemplate().queryForObject(query, params, EmailSettingsRequestDTO.class);
+        return dynamicDataSourceService.getJdbcTemplate().query(query, params, rs -> {
+            if (rs.next()) {
+                EmailSettingsRequestDTO dto = new EmailSettingsRequestDTO();
+                dto.setPidconfiguracioncorreo(rs.getInt("pidconfiguracioncorreo"));
+                dto.setPcorreoemisor(rs.getString("pcorreoemisor"));
+                dto.setPaplicacionsontrasena(rs.getString("paplicacionsontrasena"));
+                dto.setPservidorsmtp(rs.getString("pservidorsmtp"));
+                dto.setPpuertosmtp(rs.getInt("ppuertosmtp"));
+                dto.setPssl(rs.getBoolean("pssl"));
+                dto.setPnombreremitente(rs.getString("pnombreremitente"));
+                dto.setPestadop(rs.getBoolean("pestadop") ? "Activo" : "Inactivo");
+                return dto;
+            }
+            return null;
+        });
     }
 }
