@@ -13,9 +13,4 @@ public interface TeacherRequestRepository {
                                                Integer timeSlotId, Integer modalityId, String estimatedDuration,
                                                String reason, Integer workAreaTypeId);
     TeacherActionResponseDTO cancelSession(Integer userId, Integer scheduledId, String reason);
-
-    /**
-     * Datos de contacto del estudiante para notificaciones.
-     */
-    com.CLMTZ.Backend.dto.reinforcement.student.StudentRequestSummaryDTO getRequestSummary(Integer requestId);
 }
