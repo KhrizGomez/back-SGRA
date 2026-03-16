@@ -7,8 +7,17 @@ IMPORTANTE:
 
 REGLAS DE VALIDACION:
 1. "identificacion": obligatorio.
-   - Si tiene 10 digitos numericos, validar cedula ecuatoriana (provincia 01-24, tercer digito 0-5 y digito verificador correcto).
-   - Si NO tiene 10 digitos, tratar como pasaporte: alfanumerico, longitud 5-20, sin espacios.
+   Si tiene exactamente 10 digitos numericos, aplicar algoritmo de cedula ecuatoriana:
+     - Paso 1: Los 2 primeros digitos forman el codigo de provincia. Debe estar entre 01 y 24.
+     - Paso 2: El tercer digito debe ser 0, 1, 2, 3, 4 o 5.
+     - Paso 3: Calcular digito verificador con los primeros 9 digitos:
+         * Coeficientes en orden: [2, 1, 2, 1, 2, 1, 2, 1, 2]
+         * Multiplicar cada digito por su coeficiente. Si el producto >= 10, restar 9.
+         * Sumar todos los resultados parciales.
+         * Verificador = (10 - (suma % 10)) % 10
+         * El verificador debe ser igual al 10mo digito de la cedula.
+   Si NO tiene 10 digitos numericos, tratar como pasaporte: alfanumerico, longitud 5-20, sin espacios.
+
 2. "apellidos": obligatorio, solo letras y espacios.
 3. "nombres": obligatorio, solo letras y espacios.
 4. "sexo": obligatorio, debe iniciar con "M" o "F" (ej. "M", "F", "MASCULINO", "FEMENINO").
