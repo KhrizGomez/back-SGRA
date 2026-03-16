@@ -67,33 +67,21 @@ public class CoordinationController {
 
         if (ExcelHelper.hasExcelFormat(file)) {
             try {
-                // Leer el archivo en bytes para poder reutilizarlo varias veces
+                // Leer todos los registros del Excel en una sola pasada
                 byte[] fileContent = file.getBytes();
-                List<String> reporteTotal = new ArrayList<>();
-                
-                // Tamaño de lote (cantidad de registros a procesar de una sola vez)
-                final int BATCH_SIZE = 20;
-                
-                // Contar total de registros
-                java.io.InputStream isCount = new java.io.ByteArrayInputStream(fileContent);
-                int totalRows = ExcelHelper.countStudentRows(isCount, carreraTexto, modalidadTexto);
+                java.io.InputStream is = new java.io.ByteArrayInputStream(fileContent);
+                int totalRows = ExcelHelper.countStudentRows(is, carreraTexto, modalidadTexto);
                 System.out.println("[UPLOAD-STUDENTS] Total de filas de estudiantes en Excel: " + totalRows);
-                
-                // Procesar en lotes
-                for (int offset = 0; offset < totalRows; offset += BATCH_SIZE) {
-                    java.io.InputStream isBatch = new java.io.ByteArrayInputStream(fileContent);
-                    List<StudentLoadDTO> batch = ExcelHelper.excelToStudentsBatch(isBatch, offset, BATCH_SIZE, carreraTexto, modalidadTexto);
-                    
-                    if (batch.isEmpty()) break;
-                    
-                    // DEDUPLICAR por identificación dentro del lote
-                    batch = deduplicateStudents(batch);
-                    
-                    System.out.println("[UPLOAD-STUDENTS] Procesando lote: offset=" + offset + ", cantidad=" + batch.size());
-                    
-                    List<String> reporteLote = service.uploadStudents(batch);
-                    reporteTotal.addAll(reporteLote);
-                }
+
+                java.io.InputStream isFull = new java.io.ByteArrayInputStream(fileContent);
+                List<StudentLoadDTO> allStudents = ExcelHelper.excelToStudentsBatch(isFull, 0, totalRows, carreraTexto, modalidadTexto);
+
+                // DEDUPLICAR por identificación
+                allStudents = deduplicateStudents(allStudents);
+
+                System.out.println("[UPLOAD-STUDENTS] Procesando " + allStudents.size() + " registros en una sola llamada");
+
+                List<String> reporteTotal = service.uploadStudents(allStudents);
                 
                 boolean tieneErrores = reporteTotal.stream().anyMatch(r ->
                         r.contains(": ERROR") || r.startsWith("ADVERTENCIA") || r.startsWith("ERROR GENERAL"));
@@ -143,33 +131,21 @@ public class CoordinationController {
 
         if (ExcelHelper.hasExcelFormat(file)) {
             try {
-                // Leer el archivo en bytes para poder reutilizarlo varias veces
+                // Leer todos los registros del Excel en una sola pasada
                 byte[] fileContent = file.getBytes();
-                List<String> reporteTotal = new ArrayList<>();
-                
-                // Tamaño de lote (cantidad de registros a procesar de una sola vez)
-                final int BATCH_SIZE = 20;
-                
-                // Contar total de registros
-                java.io.InputStream isCount = new java.io.ByteArrayInputStream(fileContent);
-                int totalRows = ExcelHelper.countTeachingRows(isCount);
+                java.io.InputStream is = new java.io.ByteArrayInputStream(fileContent);
+                int totalRows = ExcelHelper.countTeachingRows(is);
                 System.out.println("Total de filas de docentes en Excel: " + totalRows);
-                
-                // Procesar en lotes
-                for (int offset = 0; offset < totalRows; offset += BATCH_SIZE) {
-                    java.io.InputStream isBatch = new java.io.ByteArrayInputStream(fileContent);
-                    List<TeachingDTO> batch = ExcelHelper.excelToTeachingBatch(isBatch, offset, BATCH_SIZE);
-                    
-                    if (batch.isEmpty()) break;
-                    
-                    // DEDUPLICAR por nombres + apellidos dentro del lote
-                    batch = deduplicateTeachers(batch);
-                    
-                    System.out.println("Procesando lote: offset=" + offset + ", cantidad=" + batch.size());
-                    
-                    List<String> reporteLote = service.uploadTeachers(batch);
-                    reporteTotal.addAll(reporteLote);
-                }
+
+                java.io.InputStream isFull = new java.io.ByteArrayInputStream(fileContent);
+                List<TeachingDTO> allTeachers = ExcelHelper.excelToTeachingBatch(isFull, 0, totalRows);
+
+                // DEDUPLICAR por nombres + apellidos
+                allTeachers = deduplicateTeachers(allTeachers);
+
+                System.out.println("Procesando " + allTeachers.size() + " docentes en una sola llamada");
+
+                List<String> reporteTotal = service.uploadTeachers(allTeachers);
                 
                 boolean tieneErrores = reporteTotal.stream().anyMatch(r ->
                         r.contains(": ERROR") || r.startsWith("ADVERTENCIA") || r.startsWith("ERROR GENERAL"));
