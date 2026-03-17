@@ -9,6 +9,7 @@ import com.CLMTZ.Backend.dto.academic.TeachingDTO;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -502,6 +503,14 @@ public class ExcelHelper {
     private static String getCellValue(Row row, int cellIndex) {
         Cell cell = row.getCell(cellIndex);
         if (cell == null || cell.getCellType() == CellType.BLANK) return "";
+        // For numeric cells with General format, DataFormatter may return "1234567890.0".
+        // Whole-number values (IDs, phones, levels) must be returned without decimals.
+        if (cell.getCellType() == CellType.NUMERIC && !DateUtil.isCellDateFormatted(cell)) {
+            double val = cell.getNumericCellValue();
+            if (val == Math.floor(val) && !Double.isInfinite(val)) {
+                return String.valueOf((long) val);
+            }
+        }
         return formatter.formatCellValue(cell).trim();
     }
 

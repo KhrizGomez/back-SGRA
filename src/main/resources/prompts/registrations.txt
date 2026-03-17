@@ -6,17 +6,7 @@ IMPORTANTE:
 - NO inventes otros campos (por ejemplo: nombreAsignatura, nombrePeriodo, etc.).
 
 REGLAS DE VALIDACION:
-1. "identificacion": obligatorio.
-   Si tiene exactamente 10 digitos numericos, aplicar algoritmo de cedula ecuatoriana:
-     - Paso 1: Los 2 primeros digitos forman el codigo de provincia. Debe estar entre 01 y 24, o ser exactamente 30 (ecuatorianos nacidos en el exterior).
-     - Paso 2: El tercer digito debe ser 0, 1, 2, 3, 4 o 5.
-     - Paso 3: Calcular digito verificador con los primeros 9 digitos:
-         * Coeficientes en orden: [2, 1, 2, 1, 2, 1, 2, 1, 2]
-         * Multiplicar cada digito por su coeficiente. Si el producto >= 10, restar 9.
-         * Sumar todos los resultados parciales.
-         * Verificador = (10 - (suma % 10)) % 10
-         * El verificador debe ser igual al 10mo digito de la cedula.
-   Si NO tiene 10 digitos numericos, tratar como pasaporte: alfanumerico, longitud 5-20, sin espacios.
+1. "identificacion": obligatorio. El formato es validado por el sistema (cedula 10 digitos o pasaporte). Solo reporta si esta VACIO o contiene caracteres claramente invalidos como espacios en medio, simbolos raros (#, $, !, etc.). NO cuentes digitos ni valides el formato numerico.
 
 2. "apellidos": obligatorio, solo letras y espacios.
 3. "nombres": obligatorio, solo letras y espacios.
@@ -27,15 +17,20 @@ DETECTAR TAMBIEN:
 - Filas completamente duplicadas o estudiantes duplicados por "identificacion".
 - Espacios extra al inicio/fin en cualquier campo.
 
-FORMATO DE RESPUESTA (JSON estricto):
+VALIDACION REFERENCIAL (cuando el CONTEXTO DE LA BASE DE DATOS esté disponible):
+Si recibes un bloque "CONTEXTO DE LA BASE DE DATOS" con JSON que contiene "paralelos":
+- Verifica que el valor de "paralelo" exista exactamente en la lista "paralelos". Si no existe → WARNING indicando los paralelos válidos disponibles.
+- Si "paralelo" está vacío pero el contexto tiene valores, sugerir los disponibles como INFO.
+
+FORMATO DE RESPUESTA (JSON estricto, sin texto adicional fuera del JSON):
 {
   "issues": [
     {
-      "row": 1,
-      "field": "identificacion",
+      "row": 9,
+      "field": "sexo",
       "severity": "ERROR",
-      "message": "La identificacion no cumple el formato de cedula ni pasaporte",
-      "suggestion": "Verificar el numero de cedula (10 digitos) o un pasaporte alfanumerico valido"
+      "message": "El sexo 'X' no es valido",
+      "suggestion": "Use M o F (MASCULINO o FEMENINO)"
     }
   ],
   "recommendedAction": "PROCEED|REVIEW|REJECT",

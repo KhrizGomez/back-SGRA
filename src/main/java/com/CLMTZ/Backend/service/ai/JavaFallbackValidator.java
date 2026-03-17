@@ -437,38 +437,61 @@ public class JavaFallbackValidator {
 
     private String getString(Map<String, Object> row, String field) {
         Object value = row.get(field);
-        return value == null ? "" : value.toString().trim();
+        if (value == null) return "";
+        // Excel lee celdas numéricas como Double → normalizar "1234567890.0" → "1234567890"
+        if (value instanceof Double d) {
+            long asLong = d.longValue();
+            if (d == asLong) return String.valueOf(asLong);
+        }
+        return value.toString().trim();
     }
 
     private String normalizeKey(String value) {
         return value == null ? "" : value.trim().toLowerCase();
     }
 
+    private static final Pattern ONLY_DIGITS_PATTERN = Pattern.compile("^\\d+$");
+
     private void validateIdentificacion(String identificacion, int rowNum, String field,
                                         List<AIValidationIssue> issues) {
         String value = identificacion.trim();
 
+        // Caso 1: exactamente 10 dígitos → cédula ecuatoriana (incluye provincia 30 = nacidos exterior)
         if (CEDULA_PATTERN.matcher(value).matches()) {
             if (!isValidEcuadorianCedula(value)) {
                 issues.add(AIValidationIssue.builder()
                         .row(rowNum)
                         .field(field)
                         .severity(AIValidationIssue.Severity.ERROR)
-                        .message("La cedula en la fila " + rowNum + " no es valida: '" + value + "'.")
-                        .suggestion("Verifique provincia, tercer digito y digito verificador.")
+                        .message("La cedula en la fila " + rowNum + " no es valida: '" + value + "'. Verifique provincia, tercer digito y digito verificador.")
+                        .suggestion("La cedula ecuatoriana debe tener 10 digitos con digito verificador valido.")
                         .source("FALLBACK")
                         .build());
             }
             return;
         }
 
+        // Caso 2: solo dígitos pero distinto de 10 → cédula mal formada (no es pasaporte)
+        if (ONLY_DIGITS_PATTERN.matcher(value).matches()) {
+            issues.add(AIValidationIssue.builder()
+                    .row(rowNum)
+                    .field(field)
+                    .severity(AIValidationIssue.Severity.ERROR)
+                    .message("La cedula en la fila " + rowNum + " tiene " + value.length() + " digitos; debe tener exactamente 10: '" + value + "'.")
+                    .suggestion("Verifique que la cedula ecuatoriana tenga exactamente 10 digitos.")
+                    .source("FALLBACK")
+                    .build());
+            return;
+        }
+
+        // Caso 3: alfanumérico con letras → pasaporte (extranjeros, ecuatorianos con pasaporte)
         if (!PASSPORT_PATTERN.matcher(value).matches()) {
             issues.add(AIValidationIssue.builder()
                     .row(rowNum)
                     .field(field)
                     .severity(AIValidationIssue.Severity.ERROR)
                     .message("La identificacion en la fila " + rowNum + " no cumple formato de cedula ni pasaporte: '" + value + "'.")
-                    .suggestion("Use cedula ecuatoriana de 10 digitos o pasaporte alfanumerico (5-20) sin espacios.")
+                    .suggestion("Use cedula ecuatoriana (10 digitos) o pasaporte alfanumerico (5-20 caracteres) sin espacios.")
                     .source("FALLBACK")
                     .build());
         }
