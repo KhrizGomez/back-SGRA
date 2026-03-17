@@ -1,8 +1,10 @@
 package com.CLMTZ.Backend.service.ai;
 
+import com.CLMTZ.Backend.config.UserContextHolder;
 import com.CLMTZ.Backend.dto.ai.ChatRequest;
 import com.CLMTZ.Backend.dto.ai.ChatResponse;
 import com.CLMTZ.Backend.repository.ai.AIChatContextRepository;
+import com.CLMTZ.Backend.repository.ai.StudentAIContextRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -18,6 +20,7 @@ public class AIChatService {
 
     private final GroqAIService groqAIService;
     private final AIChatContextRepository chatContextRepository;
+    private final StudentAIContextRepository studentContextRepository;
 
     public ChatResponse chat(ChatRequest request) {
         try {
@@ -85,7 +88,16 @@ public class AIChatService {
     private String getDbContext(String module) {
         return switch (module) {
             case "coordinacion" -> chatContextRepository.getCoordinacionContext();
-            default             -> "{}";
+            case "estudiante"   -> {
+                try {
+                    Integer userId = UserContextHolder.getContext().getUserId();
+                    yield studentContextRepository.getStudentContext(userId);
+                } catch (Exception e) {
+                    log.warn("[AIChatService] No se pudo obtener contexto de estudiante: {}", e.getMessage());
+                    yield "{}";
+                }
+            }
+            default -> "{}";
         };
     }
 
