@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -29,32 +31,84 @@ public class ExcelAIValidationService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Valida los datos del Excel usando IA (Groq) con fallback a reglas Java.
+     * Valida los datos del Excel combinando reglas Java (siempre) con IA (cuando disponible).
+     * Java es autoritativo para conteos y formatos; la IA aporta validación semántica y referencial.
      */
     public AIValidationResult validate(AIValidationRequest request) {
         log.info("[ExcelAIValidationService] Iniciando validación para tipo: {} con {} filas",
                 request.getLoadType(), request.getRows().size());
 
-        // Intentar validación con IA primero
-        if (groqAIService.isAvailable()) {
-            try {
-                AIValidationResult aiResult = validateWithAI(request);
-                if (aiResult != null) {
-                    return aiResult;
-                }
-            } catch (Exception e) {
-                log.warn("[ExcelAIValidationService] Groq AI falló, usando fallback Java. Error: {}", e.getMessage());
-            }
-        } else {
-            log.info("[ExcelAIValidationService] Groq AI no disponible (sin API key), usando fallback Java.");
-        }
-
-        // Fallback a validaciones Java
-        return fallbackValidator.validate(
+        // Siempre ejecutar validaciones Java (confiables para formatos, conteos, duplicados)
+        AIValidationResult javaResult = fallbackValidator.validate(
                 request.getRows(),
                 request.getLoadType(),
                 getRequiredFieldsForType(request.getLoadType())
         );
+
+        // Si Groq está disponible, añadir issues semánticos/referenciales de la IA
+        if (groqAIService.isAvailable()) {
+            try {
+                AIValidationResult aiResult = validateWithAI(request);
+                if (aiResult != null) {
+                    return mergeResults(javaResult, aiResult);
+                }
+            } catch (Exception e) {
+                log.warn("[ExcelAIValidationService] Groq AI falló, usando solo validación Java. Error: {}", e.getMessage());
+            }
+        } else {
+            log.info("[ExcelAIValidationService] Groq AI no disponible, usando solo validación Java.");
+        }
+
+        return javaResult;
+    }
+
+    /**
+     * Combina los issues de Java y de la IA.
+     * Los issues de Java son autoritativos para campos de formato (identificacion, cedula, email, telefono).
+     * La IA aporta issues semánticos y referenciales adicionales sin duplicar los de Java.
+     */
+    private AIValidationResult mergeResults(AIValidationResult javaResult, AIValidationResult aiResult) {
+        // Campos que Java valida mejor que la IA — no se toman de la IA para esos campos
+        Set<String> javaAuthorativeFields = Set.of(
+                "identificacion", "cedulaDocente", "correo", "email",
+                "telefono1", "telefono2", "sexo", "diaSemana"
+        );
+
+        // Clave de deduplicación: row + field + severity
+        Set<String> seen = new HashSet<>();
+        List<AIValidationIssue> merged = new ArrayList<>();
+
+        // Primero los issues de Java (siempre incluidos)
+        for (AIValidationIssue issue : javaResult.getIssues()) {
+            String key = issue.getRow() + "|" + issue.getField() + "|" + issue.getSeverity();
+            seen.add(key);
+            merged.add(issue);
+        }
+
+        // Luego los issues de IA, excluyendo campos donde Java ya es autoritativo
+        for (AIValidationIssue issue : aiResult.getIssues()) {
+            if (javaAuthorativeFields.contains(issue.getField())) continue;
+            String key = issue.getRow() + "|" + issue.getField() + "|" + issue.getSeverity();
+            if (seen.add(key)) {
+                merged.add(issue);
+            }
+        }
+
+        long errorCount   = merged.stream().filter(i -> i.getSeverity() == AIValidationIssue.Severity.ERROR).count();
+        long warningCount = merged.stream().filter(i -> i.getSeverity() == AIValidationIssue.Severity.WARNING).count();
+
+        String action = errorCount > 0 ? "REJECT" : warningCount > 0 ? "REVIEW" : "PROCEED";
+        String summary = merged.isEmpty()
+                ? "Validación completada. No se encontraron problemas en " + javaResult.getIssues().size() + " filas."
+                : String.format("Validación completada: %d errores, %d advertencias.", errorCount, warningCount);
+
+        return AIValidationResult.builder()
+                .issues(merged)
+                .aiValidated(true)
+                .recommendedAction(action)
+                .summary(summary)
+                .validationTimeMs(javaResult.getValidationTimeMs())
+                .build();
     }
 
     /**
@@ -135,6 +189,13 @@ public class ExcelAIValidationService {
         } catch (Exception e) {
             log.error("[ExcelAIValidationService] Error al serializar datos: {}", e.getMessage());
             return "";
+        }
+
+        // Inyectar contexto de BD para validación referencial
+        if (request.getDbContext() != null && !request.getDbContext().isBlank()) {
+            sb.append("\n\nCONTEXTO DE LA BASE DE DATOS (usa esto para validación referencial):\n");
+            sb.append(request.getDbContext());
+            sb.append("\n");
         }
 
         return sb.toString();

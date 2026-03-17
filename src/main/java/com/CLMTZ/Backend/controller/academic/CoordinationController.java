@@ -24,6 +24,7 @@ import com.CLMTZ.Backend.service.academic.ICoordinationService;
 import com.CLMTZ.Backend.service.academic.IEnrollmentDetailService;
 import com.CLMTZ.Backend.service.academic.ISubjectService;
 import com.CLMTZ.Backend.service.ai.ExcelAIValidationService;
+import com.CLMTZ.Backend.service.ai.ExcelValidationContextService;
 import com.CLMTZ.Backend.util.ExcelHelper;
 
 import lombok.NonNull;
@@ -36,6 +37,7 @@ public class CoordinationController {
 
     private final ICoordinationService service;
     private final ExcelAIValidationService aiValidationService;
+    private final ExcelValidationContextService validationContextService;
 
     @GetMapping
     public ResponseEntity<List<CoordinationDTO>> findAll() { return ResponseEntity.ok(service.findAll()); }
@@ -334,10 +336,19 @@ public class CoordinationController {
                         .build());
             }
 
+            // Obtener contexto referencial de la BD para enriquecer la validación IA
+            String dbContext = null;
+            try {
+                dbContext = validationContextService.getContextForType(loadType);
+            } catch (Exception ex) {
+                System.out.println("[VALIDATE-EXCEL] No se pudo obtener contexto BD: " + ex.getMessage());
+            }
+
             // Construir request de validación
             AIValidationRequest request = AIValidationRequest.builder()
                     .loadType(loadType)
                     .rows(rows)
+                    .dbContext(dbContext)
                     .build();
 
             // Ejecutar validación IA (con fallback a Java)

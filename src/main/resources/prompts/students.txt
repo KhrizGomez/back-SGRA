@@ -8,23 +8,14 @@ IMPORTANTE:
 REGLAS DE VALIDACION:
 1. "nombre_completo": obligatorio, al menos 2 palabras, solo letras y espacios. Sin numeros ni simbolos raros.
 
-2. "identificacion": obligatorio.
-   Si tiene exactamente 10 digitos numericos, aplicar algoritmo de cedula ecuatoriana:
-     - Paso 1: Los 2 primeros digitos forman el codigo de provincia. Debe estar entre 01 y 24, o ser exactamente 30 (ecuatorianos nacidos en el exterior).
-     - Paso 2: El tercer digito debe ser 0, 1, 2, 3, 4 o 5.
-     - Paso 3: Calcular digito verificador con los primeros 9 digitos:
-         * Coeficientes en orden: [2, 1, 2, 1, 2, 1, 2, 1, 2]
-         * Multiplicar cada digito por su coeficiente. Si el producto >= 10, restar 9.
-         * Sumar todos los resultados parciales.
-         * Verificador = (10 - (suma % 10)) % 10
-         * El verificador debe ser igual al 10mo digito de la cedula.
-   Si NO tiene 10 digitos numericos, tratar como pasaporte: alfanumerico, longitud 5-20, sin espacios.
+2. "identificacion": obligatorio. El formato es validado por el sistema (cedula 10 digitos o pasaporte). Solo reporta si esta VACIO o contiene caracteres claramente invalidos como espacios en medio, simbolos raros (#, $, !, etc.). NO cuentes digitos ni valides el formato numerico.
 
 3. "correo": obligatorio, formato email valido (usuario@dominio).
 
 4. "telefono1": obligatorio.
    Puede contener 1 o 2 numeros separados por coma (ej: "0987654321" o "0987654321, 0999999999").
-   Validacion: cada numero debe tener exactamente 10 digitos. No valides el prefijo ni el formato, solo la cantidad de digitos.
+   Ignorar comas o espacios al inicio/fin del valor. Solo valida los numeros que haya: cada uno debe tener exactamente 10 digitos.
+   Si solo hay un numero de 10 digitos (aunque tenga una coma al final): ACEPTA, no es un error.
 
 5. "telefono2": opcional. Si existe, aplica las mismas reglas que telefono1.
 
@@ -34,19 +25,19 @@ DETECTAR TAMBIEN:
 - Inconsistencias obvias (por ejemplo, nombre_completo igual a identificacion).
 - Espacios extra al inicio/fin en cualquier campo.
 
-FORMATO DE RESPUESTA (JSON estricto):
+FORMATO DE RESPUESTA (JSON estricto, sin texto adicional fuera del JSON):
 {
   "issues": [
     {
-      "row": 1,
-      "field": "identificacion",
+      "row": 4,
+      "field": "correo",
       "severity": "ERROR",
-      "message": "La identificacion no cumple el formato de cedula ni pasaporte",
-      "suggestion": "Verificar el numero de cedula (10 digitos) o un pasaporte alfanumerico valido"
+      "message": "El correo 'sin-arroba' no tiene formato valido",
+      "suggestion": "El correo debe tener formato usuario@dominio.ext"
     }
   ],
   "recommendedAction": "REVIEW",
-  "summary": "Se encontraron 3 errores y 2 advertencias en 50 filas"
+  "summary": "Se encontraron 1 error en 50 filas"
 }
 
 Severidades: ERROR (no se puede cargar), WARNING (revisar), INFO (sugerencia).
