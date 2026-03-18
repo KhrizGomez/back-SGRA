@@ -1,7 +1,5 @@
 package com.CLMTZ.Backend.service.academic.impl;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -9,6 +7,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.CLMTZ.Backend.dto.academic.CareerLoadDTO;
@@ -48,22 +47,32 @@ public class ExcelUploadServiceImpl implements IExcelUploadService {
         ExcelHelper.validateExcelFormat(file);
 
         try {
-            byte[] fileContent = file.getBytes();
+            String nombreOriginal = file.getOriginalFilename();
+            String extension = StringUtils.getFilenameExtension(nombreOriginal);
+            List<StudentLoadDTO> allStudents = null;
 
-            InputStream is = new ByteArrayInputStream(fileContent);
-            int totalRows = ExcelHelper.countStudentRows(is, carreraTexto, modalidadTexto);
-            log.info("[UPLOAD-STUDENTS] Total de filas de estudiantes en Excel: {}", totalRows);
+            // 1. Decidimos qué librería usar según la extensión
+            if (extension != null && extension.equalsIgnoreCase("xls")) {
+                allStudents = ExcelHelper.readStudentsWithEasyExcel(file.getInputStream(), carreraTexto,
+                        modalidadTexto);
 
-            InputStream isFull = new ByteArrayInputStream(fileContent);
-            List<StudentLoadDTO> allStudents = ExcelHelper.excelToStudentsBatch(isFull, 0, totalRows, carreraTexto, modalidadTexto);
+            } else if (extension != null && extension.equalsIgnoreCase("xlsx")) {
+                allStudents = ExcelHelper.readStudentsWithApachePoi(file.getInputStream(), carreraTexto,
+                        modalidadTexto);
+
+            } else {
+                throw new IllegalArgumentException("La extensión " + extension + " no es válida.");
+            }
 
             allStudents = deduplicateStudents(allStudents);
             log.info("[UPLOAD-STUDENTS] Procesando {} registros", allStudents.size());
 
             return coordinationService.uploadStudents(allStudents);
+
         } catch (Exception e) {
             log.error("[UPLOAD-STUDENTS] Error procesando archivo: {}", e.getMessage(), e);
-            throw new RuntimeException("No se pudo procesar el archivo: " + file.getOriginalFilename() + ". Error: " + e.getMessage(), e);
+            throw new RuntimeException("No se pudo procesar el archivo: "
+                    + file.getOriginalFilename() + ". Error: " + e.getMessage(), e);
         }
     }
 
@@ -72,28 +81,34 @@ public class ExcelUploadServiceImpl implements IExcelUploadService {
     // =====================================================================
 
     @Override
-    public List<String> uploadTeachers(MultipartFile file) {
-        ExcelHelper.validateExcelFormat(file);
-
-        try {
-            byte[] fileContent = file.getBytes();
-
-            InputStream is = new ByteArrayInputStream(fileContent);
-            int totalRows = ExcelHelper.countTeachingRows(is);
-            log.info("[UPLOAD-TEACHERS] Total de filas de docentes en Excel: {}", totalRows);
-
-            InputStream isFull = new ByteArrayInputStream(fileContent);
-            List<TeachingDTO> allTeachers = ExcelHelper.excelToTeachingBatch(isFull, 0, totalRows);
-
-            allTeachers = deduplicateTeachers(allTeachers);
-            log.info("[UPLOAD-TEACHERS] Procesando {} docentes", allTeachers.size());
-
-            return coordinationService.uploadTeachers(allTeachers);
-        } catch (Exception e) {
-            log.error("[UPLOAD-TEACHERS] Error procesando archivo: {}", e.getMessage(), e);
-            throw new RuntimeException("Error al procesar docentes: " + e.getMessage(), e);
+public List<String> uploadTeachers(MultipartFile file) {
+    ExcelHelper.validateExcelFormat(file);
+    try {
+        String nombreOriginal = file.getOriginalFilename();
+        String extension = StringUtils.getFilenameExtension(nombreOriginal);
+        List<TeachingDTO> allTeachers = null;
+        
+        if (extension != null && extension.equalsIgnoreCase("xls")) {
+            allTeachers = ExcelHelper.readTeachersWithEasyExcel(file.getInputStream());
+            
+        } else if (extension != null && extension.equalsIgnoreCase("xlsx")) {
+            allTeachers = ExcelHelper.readTeachersWithApachePoi(file.getInputStream());
+            
+        } else {
+            throw new IllegalArgumentException("La extensión " + extension + " no es válida.");
         }
+        
+        // 2. Quitamos duplicados y subimos a la base
+        allTeachers = deduplicateTeachers(allTeachers);
+        log.info("[UPLOAD-TEACHERS] Procesando {} docentes", allTeachers.size());
+        
+        return coordinationService.uploadTeachers(allTeachers);
+        
+    } catch (Exception e) {
+        log.error("[UPLOAD-TEACHERS] Error procesando archivo: {}", e.getMessage(), e);
+        throw new RuntimeException("Error al procesar docentes: " + e.getMessage(), e);
     }
+}
 
     // =====================================================================
     // CARGA DE CARRERAS
@@ -136,10 +151,17 @@ public class ExcelUploadServiceImpl implements IExcelUploadService {
     @Override
     public List<String> uploadRegistrations(MultipartFile file) {
         ExcelHelper.validateExcelFormat(file);
-
         try {
-            List<EnrollmentDetailLoadDTO> registrationDTOs = ExcelHelper.excelToEnrollments(
-                    file.getInputStream(), file.getOriginalFilename());
+            String nombreOriginal = file.getOriginalFilename();
+            String extension = StringUtils.getFilenameExtension(nombreOriginal);
+            List<EnrollmentDetailLoadDTO> registrationDTOs = null;
+            if(extension != null && extension.equalsIgnoreCase("xls")){
+                registrationDTOs = ExcelHelper.readWithEasyExcel(file.getInputStream());
+            }
+            else if (extension != null && extension.equalsIgnoreCase("xlsx")){
+                registrationDTOs = ExcelHelper.readWithApachePoi(file.getInputStream());
+            }
+            
             return enrollmentDetailService.uploadEnrollmentDetails(registrationDTOs);
         } catch (Exception e) {
             log.error("[UPLOAD-REGISTRATIONS] Error procesando archivo: {}", e.getMessage(), e);

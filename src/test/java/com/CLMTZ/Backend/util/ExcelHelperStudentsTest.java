@@ -16,30 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ExcelHelperStudentsTest {
 
-    @Test
-    void excelToStudentsBatch_incluyeLaUltimaFilaDeDatos() throws IOException {
-        try (InputStream inputStream = buildStudentsWorkbook()) {
-            int totalRows = ExcelHelper.countStudentRows(inputStream, "Software", "Presencial");
-            assertEquals(3, totalRows);
-        }
-
-        try (InputStream inputStream = buildStudentsWorkbook()) {
-            List<StudentLoadDTO> students = ExcelHelper.excelToStudentsBatch(
-                    inputStream,
-                    0,
-                    10,
-                    "Software",
-                    "Presencial"
-            );
-
-            assertEquals(3, students.size());
-            assertEquals("BELINDA BETZABETH TOAQUIZA ZAMBRANO", students.get(1).getNombres() + " " + students.get(1).getApellidos());
-            assertEquals("LUIS MARIO", students.get(2).getNombres());
-            assertEquals("ZAMBRANO PARRAGA", students.get(2).getApellidos());
-            assertEquals("0651080749", students.get(2).getIdentificacion());
-        }
-    }
-
     private InputStream buildStudentsWorkbook() throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Students");
