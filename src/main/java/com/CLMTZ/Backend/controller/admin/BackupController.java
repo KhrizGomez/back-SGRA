@@ -56,12 +56,12 @@ public class BackupController {
 
     @PostMapping("/restore/{fileName}")
     public ResponseEntity<BackupResultDTO> restore(@PathVariable String fileName) {
-        return ResponseEntity.ok(backupService.restoreBackup(fileName));
+        return ResponseEntity.ok(backupService.restoreBackup(fileName, false));
     }
 
     @PostMapping("/restore-new-db/{fileName}")
     public ResponseEntity<BackupResultDTO> restoreToNewDatabase(@PathVariable String fileName) {
-        return ResponseEntity.ok(backupService.restoreBackupToNewDatabase(fileName));
+        return ResponseEntity.ok(backupService.restoreBackupToNewDatabase(fileName,false));
     }
 
     @GetMapping("/download/{fileName}")
@@ -129,5 +129,11 @@ public class BackupController {
     public ResponseEntity<Void> deleteSchedule(@PathVariable Integer id) {
         backupService.deleteSchedule(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/restorebd-no-existent")
+    public ResponseEntity<Boolean> restoreDropBd(@RequestParam String fileName){
+        Boolean success = backupService.restoreDropBd(fileName);
+        return ResponseEntity.ok(success);
     }
 }

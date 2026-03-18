@@ -11,8 +11,8 @@ import java.util.List;
 public interface IBackupService {
     // Backup manual / ejecución
     BackupResultDTO triggerManualBackup();
-    BackupResultDTO restoreBackup(String fileName);
-    BackupResultDTO restoreBackupToNewDatabase(String fileName);
+    BackupResultDTO restoreBackup(String fileName, Boolean cero);
+    BackupResultDTO restoreBackupToNewDatabase(String fileName,Boolean connect);
     List<BackupHistoryItemDTO> listBackups();
     String validatePgDump();
     String getDownloadUrl(String fileName);
@@ -29,4 +29,7 @@ public interface IBackupService {
     BackupLocalConfigDTO getLocalConfig();
     BackupLocalConfigDTO saveLocalConfig(String ruta);
     BackupBrowseDTO browseDirectory(String path);
+
+    // Restore de casos extremos
+    Boolean restoreDropBd(String fileName); 
 }

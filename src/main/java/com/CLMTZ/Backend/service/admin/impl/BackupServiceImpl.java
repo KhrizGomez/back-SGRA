@@ -1,5 +1,6 @@
 package com.CLMTZ.Backend.service.admin.impl;
 
+import com.CLMTZ.Backend.config.EmergencyDbConfig;
 import com.CLMTZ.Backend.config.UserContextHolder;
 import com.CLMTZ.Backend.dto.admin.BackupBrowseDTO;
 import com.CLMTZ.Backend.dto.admin.BackupHistoryItemDTO;
@@ -23,12 +24,14 @@ import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import javax.sql.DataSource;
 import jakarta.persistence.EntityManagerFactory;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -55,6 +58,8 @@ import java.util.zip.ZipOutputStream;
 public class BackupServiceImpl implements IBackupService, ApplicationListener<ApplicationReadyEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(BackupServiceImpl.class);
+
+    private final EmergencyDbConfig emergencyDbConfig;
 
     // Include seconds/millis to avoid overwriting backups created within the same minute.
     private static final DateTimeFormatter TIMESTAMP_FMT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
@@ -122,7 +127,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     // ─── Restauración ──────────────────────────────────────────────────────────
 
     @Override
-    public BackupResultDTO restoreBackup(String fileName) {
+    public BackupResultDTO restoreBackup(String fileName, Boolean cero) {
         UserContext ctx = UserContextHolder.getContext();
         String executedBy = ctx != null ? ctx.getUsername() : "Sistema";
 
@@ -150,8 +155,11 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
             });
 
             // Renombra schemas a _bak mientras descarga (permite rollback si falla el restore)
-            renombrarSchemas();
-            schemasRenombrados = true;
+            if (!cero) {
+                renombrarSchemas();
+                schemasRenombrados = true;
+            }
+            
 
             // Espera que termine la descarga antes de lanzar pg_restore
             descarga.join();
@@ -201,7 +209,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
             }
 
             // Restore exitoso → elimina los schemas _bak que ya no se necesitan
-            eliminarSchemasBak();
+            if(!cero) eliminarSchemasBak();
             log.info("Restauración '{}' completada por '{}'.", fileName, executedBy);
 
             entityManagerFactory.getCache().evictAll();
@@ -232,7 +240,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     // ─── Restauración a nueva base de datos ────────────────────────────────────
 
     @Override
-    public BackupResultDTO restoreBackupToNewDatabase(String fileName) {
+    public BackupResultDTO restoreBackupToNewDatabase(String fileName, Boolean connect) {
         UserContext ctx = UserContextHolder.getContext();
         String executedBy = ctx != null ? ctx.getUsername() : "Sistema";
 
@@ -246,8 +254,15 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
         BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
         if (!blob.exists()) return fail("Archivo no encontrado: " + fileName, executedBy);
 
-        String newDbName = fileName.replace(".zip", "").replace(".backup", "");
-        newDbName = newDbName.replaceAll("[^a-zA-Z0-9_]", "_").toLowerCase();
+        String newDbName = "";
+        if(!connect) {
+            newDbName = fileName.replace(".zip", "").replace(".backup", "");
+            newDbName = newDbName.replaceAll("[^a-zA-Z0-9_]", "_").toLowerCase();
+        }
+        else {
+            DbInfo db = parseUrl(datasourceUrl);
+            newDbName = db.name();
+        }
 
         Path tempZip = null;
         Path tempBackup = null;
@@ -282,7 +297,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
                     psql,
                     "-h", db.host(), "-p", String.valueOf(db.port()),
                     "-U", backupDbUser, "-d", "postgres",
-                    "-c", "CREATE DATABASE \"" + newDbName + "\" WITH OWNER = \"" + backupDbUser + "\" ENCODING = 'UTF8';"
+                    "-c", "CREATE DATABASE \\\"" + newDbName + "\\\" WITH OWNER = \\\"" + backupDbUser + "\\\" ENCODING = 'UTF8';"
             );
             pbCreate.environment().put("PGPASSWORD", backupDbPassword);
             pbCreate.environment().put("PGSSLMODE", "require");
@@ -822,4 +837,25 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     }
 
     private record DbInfo(String host, int port, String name) { }
+
+    @Override
+    public Boolean restoreDropBd(String fileName){
+        HikariDataSource tempDs = null;
+        try {
+            DbInfo db = parseUrl(datasourceUrl);
+            if (databaseExists(db,db.name())) return false;
+            JdbcTemplate emergency = emergencyDbConfig.emergencyDataSource();
+            tempDs = (HikariDataSource) emergency.getDataSource();
+            String dbName = "\"" + db.name() + "\"";
+            emergency.execute("CREATE DATABASE " + dbName);
+            BackupResultDTO response = restoreBackup(fileName, true);
+            return response.isSuccess();
+        } catch (Exception e) {
+            throw new RuntimeException("Erro al volver a crear la bd: "+e.getCause().getMessage());
+        } finally {
+            if( tempDs != null && !tempDs.isClosed()){
+                tempDs.close();
+            }
+        }
+    }
 }

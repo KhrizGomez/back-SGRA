@@ -68,7 +68,7 @@ public class UserConnectionPool {
                 return existing;
             }
             // Crear nuevo pool
-            log.info("Creando nuevo pool de conexiones para usuario: {}", dbUser);
+            //log.info("Creando nuevo pool de conexiones para usuario: {}", dbUser);
             HikariDataSource ds = createDataSource(dbUser, dbPassword);
             return new PoolEntry(ds);
         });
@@ -83,7 +83,7 @@ public class UserConnectionPool {
 
         PoolEntry entry = userPools.remove(dbUser);
         if (entry != null) {
-            log.info("Eliminando pool de conexiones para usuario: {}", dbUser);
+            //log.info("Eliminando pool de conexiones para usuario: {}", dbUser);
             closeQuietly(entry.dataSource);
         }
     }
@@ -161,7 +161,7 @@ public class UserConnectionPool {
 
     @PreDestroy
     public void shutdown() {
-        log.info("Cerrando todos los pools de conexión de usuarios...");
+        //log.info("Cerrando todos los pools de conexión de usuarios...");
         cleanupExecutor.shutdown();
         userPools.values().forEach(entry -> closeQuietly(entry.dataSource));
         userPools.clear();

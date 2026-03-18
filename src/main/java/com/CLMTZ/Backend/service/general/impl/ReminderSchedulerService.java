@@ -47,7 +47,7 @@ public class ReminderSchedulerService {
     @Scheduled(fixedRateString = "${sgra.reminder.check-interval-ms:60000}")
     @Transactional
     public void checkAndSendReminders() {
-        log.debug("Revisando recordatorios pendientes...");
+        //log.debug("Revisando recordatorios pendientes...");
 
         List<Integer> ids = sessionRepo.findIdsSesionesFuturas();
         if (ids.isEmpty()) return;
