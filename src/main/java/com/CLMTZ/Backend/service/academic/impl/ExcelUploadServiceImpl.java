@@ -1,7 +1,5 @@
 package com.CLMTZ.Backend.service.academic.impl;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,22 +46,19 @@ public class ExcelUploadServiceImpl implements IExcelUploadService {
         ExcelHelper.validateExcelFormat(file);
 
         try {
-            byte[] fileContent = file.getBytes();
-
-            InputStream is = new ByteArrayInputStream(fileContent);
-            int totalRows = ExcelHelper.countStudentRows(is, carreraTexto, modalidadTexto);
-            log.info("[UPLOAD-STUDENTS] Total de filas de estudiantes en Excel: {}", totalRows);
-
-            InputStream isFull = new ByteArrayInputStream(fileContent);
-            List<StudentLoadDTO> allStudents = ExcelHelper.excelToStudentsBatch(isFull, 0, totalRows, carreraTexto, modalidadTexto);
+            // ✅ Una sola pasada, sin countRows previo
+            List<StudentLoadDTO> allStudents = ExcelHelper.excelToStudents(
+                    file.getInputStream(), carreraTexto, modalidadTexto);
 
             allStudents = deduplicateStudents(allStudents);
             log.info("[UPLOAD-STUDENTS] Procesando {} registros", allStudents.size());
 
             return coordinationService.uploadStudents(allStudents);
+
         } catch (Exception e) {
             log.error("[UPLOAD-STUDENTS] Error procesando archivo: {}", e.getMessage(), e);
-            throw new RuntimeException("No se pudo procesar el archivo: " + file.getOriginalFilename() + ". Error: " + e.getMessage(), e);
+            throw new RuntimeException("No se pudo procesar el archivo: "
+                    + file.getOriginalFilename() + ". Error: " + e.getMessage(), e);
         }
     }
 
@@ -74,20 +69,10 @@ public class ExcelUploadServiceImpl implements IExcelUploadService {
     @Override
     public List<String> uploadTeachers(MultipartFile file) {
         ExcelHelper.validateExcelFormat(file);
-
         try {
-            byte[] fileContent = file.getBytes();
-
-            InputStream is = new ByteArrayInputStream(fileContent);
-            int totalRows = ExcelHelper.countTeachingRows(is);
-            log.info("[UPLOAD-TEACHERS] Total de filas de docentes en Excel: {}", totalRows);
-
-            InputStream isFull = new ByteArrayInputStream(fileContent);
-            List<TeachingDTO> allTeachers = ExcelHelper.excelToTeachingBatch(isFull, 0, totalRows);
-
+            List<TeachingDTO> allTeachers = ExcelHelper.excelToTeaching(file.getInputStream());
             allTeachers = deduplicateTeachers(allTeachers);
             log.info("[UPLOAD-TEACHERS] Procesando {} docentes", allTeachers.size());
-
             return coordinationService.uploadTeachers(allTeachers);
         } catch (Exception e) {
             log.error("[UPLOAD-TEACHERS] Error procesando archivo: {}", e.getMessage(), e);
@@ -136,10 +121,9 @@ public class ExcelUploadServiceImpl implements IExcelUploadService {
     @Override
     public List<String> uploadRegistrations(MultipartFile file) {
         ExcelHelper.validateExcelFormat(file);
-
         try {
             List<EnrollmentDetailLoadDTO> registrationDTOs = ExcelHelper.excelToEnrollments(
-                    file.getInputStream(), file.getOriginalFilename());
+                file.getInputStream(), file.getOriginalFilename());
             return enrollmentDetailService.uploadEnrollmentDetails(registrationDTOs);
         } catch (Exception e) {
             log.error("[UPLOAD-REGISTRATIONS] Error procesando archivo: {}", e.getMessage(), e);
