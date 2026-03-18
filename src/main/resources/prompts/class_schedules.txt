@@ -10,6 +10,13 @@ REGLAS DE VALIDACIÓN:
 6. Campo "horaInicio": hora en formato HH:mm, debe ser hora válida (00:00 a 23:59).
 7. Campo "horaFin": hora en formato HH:mm, debe ser posterior a horaInicio.
 
+VALIDACION REFERENCIAL (cuando el CONTEXTO DE LA BASE DE DATOS esté disponible):
+Si recibes un bloque "CONTEXTO DE LA BASE DE DATOS" con JSON que contiene "cedulasDocentes", "asignaturas", "paralelos" y "periodosActivos":
+- Verifica que "cedulaDocente" exista en "cedulasDocentes". Si no existe → ERROR (el docente no está registrado).
+- Verifica que "nombreAsignatura" exista en "asignaturas". Si no existe → WARNING con sugerencia del valor más cercano.
+- Verifica que "nombreParalelo" exista en "paralelos". Si no existe → WARNING.
+- Verifica que "nombrePeriodo" exista en "periodosActivos". Si no existe → ERROR (período no activo o no registrado).
+
 DETECTAR TAMBIÉN:
 - Conflictos de horario: mismo docente, mismo día y horas que se solapan
 - Horarios duplicados exactos (misma fila repetida)

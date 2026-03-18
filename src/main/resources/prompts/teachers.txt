@@ -20,6 +20,12 @@ DETECTAR TAMBIEN:
 - Espacios extra al inicio/fin en cualquier campo.
 - Inconsistencias obvias (por ejemplo, profesor con numeros).
 
+VALIDACION REFERENCIAL (cuando el CONTEXTO DE LA BASE DE DATOS esté disponible):
+Si recibes un bloque "CONTEXTO DE LA BASE DE DATOS" con JSON que contiene "carreras" y "materias":
+- Verifica que el valor de "carrera" exista en la lista "carreras". Si no existe → WARNING con sugerencia del valor más cercano.
+- Verifica que el valor de "materia" exista en la lista "materias". Si no existe → WARNING con sugerencia del valor más cercano.
+- Si "carrera" o "materia" están vacíos pero el contexto tiene valores, sugerir los disponibles como INFO.
+
 FORMATO DE RESPUESTA (JSON estricto):
 {
   "issues": [

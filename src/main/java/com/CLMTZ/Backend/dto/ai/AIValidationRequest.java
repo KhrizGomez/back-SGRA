@@ -25,5 +25,12 @@ public class AIValidationRequest {
 
     /** Nombres de las columnas esperadas */
     private List<String> expectedColumns;
+
+    /**
+     * Contexto de la base de datos en formato JSON string.
+     * Inyectado por ExcelValidationContextService antes de llamar a la IA.
+     * Ejemplo para "teachers": {"carreras":["Ingeniería en Software",...], "materias":[...]}
+     */
+    private String dbContext;
 }
 
