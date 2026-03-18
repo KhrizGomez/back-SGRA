@@ -7,9 +7,7 @@ import com.CLMTZ.Backend.dto.academic.StudentLoadDTO;
 import com.CLMTZ.Backend.dto.academic.SubjectLoadDTO;
 import com.CLMTZ.Backend.dto.academic.TeachingDTO;
 
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -72,15 +70,17 @@ public class ExcelHelper {
     //     Col 4: Teléfono secundario (opcional)
     // Carrera y modalidad se reciben como parámetros del endpoint.
     // =====================================================================
-    public static List<StudentLoadDTO> excelToStudents(InputStream is, String carreraTexto, String modalidadTexto) {
-        try (Workbook workbook = WorkbookFactory.create(is)) {
+    public static List<StudentLoadDTO> readStudentsWithApachePoi(InputStream is, String carreraTexto,
+            String modalidadTexto) {
+        try (Workbook workbook = new XSSFWorkbook(is)) {
             Sheet sheet = workbook.getSheetAt(0);
             List<StudentLoadDTO> estudiantes = new ArrayList<>();
 
-            // Datos empiezan en fila 3 (índice 3), filas 0-2 son encabezados
-                for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+            // Datos empiezan en fila 4 visual (índice 3), filas 0-2 son encabezados
+            for (int i = 3; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null || isRowEmpty(row)) continue;
+                if (row == null || isRowEmpty(row))
+                    continue;
 
                 String nombreCompleto = getCellValue(row, 0).trim();
                 String identificacion = getCellValue(row, 1).trim();
@@ -88,12 +88,13 @@ public class ExcelHelper {
                 String telefono1 = getCellValue(row, 3).trim();
                 String telefono2 = getCellValue(row, 4).trim();
 
-                if (identificacion.isEmpty()) continue;
+                if (identificacion.isEmpty())
+                    continue;
 
                 // Combinar teléfonos si hay dos
                 String telefono = (!telefono2.isEmpty()) ? telefono1 + " / " + telefono2 : telefono1;
 
-                // El nombre viene en formato NOMBRES APELLIDOS: ej. "DAMARYS RAELITH AGUILAR LECHON"
+                // El nombre viene en formato NOMBRES APELLIDOS
                 String[] partes = splitNombreApellido(nombreCompleto, false);
 
                 StudentLoadDTO estudiante = new StudentLoadDTO();
@@ -102,15 +103,14 @@ public class ExcelHelper {
                 estudiante.setApellidos(partes[1]);
                 estudiante.setCorreo(correo);
                 estudiante.setTelefono(telefono);
-                // Carrera y modalidad vienen del endpoint como parámetros
                 estudiante.setCarreraTexto(carreraTexto);
                 estudiante.setModalidadTexto(modalidadTexto);
 
                 estudiantes.add(estudiante);
             }
             return estudiantes;
-        } catch (IOException e) {
-            throw new RuntimeException("Error al parsear el archivo Excel de Estudiantes: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Error al parsear Excel .xlsx de Estudiantes con POI: " + e.getMessage());
         }
     }
 
@@ -128,49 +128,47 @@ public class ExcelHelper {
     //     Col 5: PROFESOR (APELLIDOS NOMBRES) ej. "BOSQUEZ MESTANZA ANGELITA LEONOR"
     //     Col 6: CORREO (email institucional, opcional)
     // =====================================================================
-    public static List<TeachingDTO> excelToTeaching(InputStream is) {
-        try (Workbook workbook = WorkbookFactory.create(is)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            List<TeachingDTO> docentes = new ArrayList<>();
+    public static List<TeachingDTO> readTeachersWithApachePoi(InputStream is) {
+    try (Workbook workbook = new XSSFWorkbook(is)) {
+        Sheet sheet = workbook.getSheetAt(0);
+        List<TeachingDTO> docentes = new ArrayList<>();
 
-            // Datos empiezan en fila 2 (índice 2), filas 0-1 son encabezados
-            for (int i = 2; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null || isRowEmpty(row)) continue;
+        // Datos empiezan en fila 2 (índice 2), filas 0-1 son encabezados
+        for (int i = 2; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null || isRowEmpty(row)) continue;
 
-                String coordinacion = getCellValue(row, 0).trim();
-                String carrera = getCellValue(row, 1).trim();
-                String nivel = getCellValue(row, 2).trim();
-                String materia = getCellValue(row, 3).trim();
-                String paralelo = getCellValue(row, 4).trim();
-                String nombreProfesor = getCellValue(row, 5).trim();
-                String correo = getCellValue(row, 6).trim();
+            String coordinacion = getCellValue(row, 0).trim();
+            String carrera = getCellValue(row, 1).trim();
+            String nivel = getCellValue(row, 2).trim();
+            String materia = getCellValue(row, 3).trim();
+            String paralelo = getCellValue(row, 4).trim();
+            String nombreProfesor = getCellValue(row, 5).trim();
+            String correo = getCellValue(row, 6).trim();
 
-                // Si no hay profesor, o dice "None", ignoramos la fila por completo
-                if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
-                if (nombreProfesor.isEmpty() && materia.isEmpty()) continue;
+            if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
+            if (nombreProfesor.isEmpty() && materia.isEmpty()) continue;
 
-                // Nombre del profesor viene en APELLIDOS NOMBRES: ej. "BOSQUEZ MESTANZA ANGELITA LEONOR"
-                String[] partes = splitNombreApellido(nombreProfesor, true);
+            String[] partes = splitNombreApellido(nombreProfesor, true);
 
-                TeachingDTO docente = new TeachingDTO();
-                docente.setCoordinacionTexto(coordinacion);
-                docente.setCarreraTexto(carrera);
-                docente.setNivelTexto(nivel);
-                docente.setAsignaturaTexto(materia);
-                docente.setParaleloTexto(paralelo);
-                docente.setNombreCompleto(nombreProfesor);
-                docente.setApellidos(partes[0]); // En Docente.xls: apellidos van primero
-                docente.setNombres(partes[1]);   // nombres van segundo
-                docente.setCorreo(correo);
+            TeachingDTO docente = new TeachingDTO();
+            docente.setCoordinacionTexto(coordinacion);
+            docente.setCarreraTexto(carrera);
+            docente.setNivelTexto(nivel);
+            docente.setAsignaturaTexto(materia);
+            docente.setParaleloTexto(paralelo);
+            docente.setNombreCompleto(nombreProfesor);
+            docente.setApellidos(partes[0]);
+            docente.setNombres(partes[1]);
+            docente.setCorreo(correo);
 
-                docentes.add(docente);
-            }
-            return docentes;
-        } catch (IOException e) {
-            throw new RuntimeException("Error al parsear el archivo Excel de Docentes: " + e.getMessage());
+            docentes.add(docente);
         }
+        return docentes;
+    } catch (Exception e) {
+        throw new RuntimeException("Error al parsear Excel .xlsx de Docentes con POI: " + e.getMessage());
     }
+}
 
     // =====================================================================
     // MATRICULA.xlsx  (formato de reporte de cumplimiento de malla UTEQ)
@@ -346,8 +344,10 @@ public class ExcelHelper {
     // =====================================================================
     // MATRICULA.xlsx
     // =====================================================================
-    public static List<EnrollmentDetailLoadDTO> excelToEnrollments(InputStream is, String fileName) {
-        try (Workbook workbook = fileName.endsWith(".xlsx") ? new XSSFWorkbook(is) : new HSSFWorkbook(is)) {
+    public static List<EnrollmentDetailLoadDTO> readWithApachePoi(InputStream is) {
+        // Usamos XSSFWorkbook directamente porque ya sabemos que es .xlsx
+        System.out.println("Entro a la lectura de excel .xlsx con Apache POI");
+        try (Workbook workbook = new XSSFWorkbook(is)) {
             Sheet sheet = workbook.getSheetAt(0);
             List<EnrollmentDetailLoadDTO> detalles = new ArrayList<>();
 
@@ -370,7 +370,7 @@ public class ExcelHelper {
                 throw new RuntimeException("El archivo no tiene el formato esperado (falta fila de asignaturas).");
             }
             Map<Integer, String> asignaturasPorColumna = new LinkedHashMap<>();
-            for (int col = 10; col < filaAsignaturas.getLastCellNum(); col++) { // getLastCellNum() es exclusivo
+            for (int col = 10; col < filaAsignaturas.getLastCellNum(); col++) {
                 String nombreAsig = getCellValue(filaAsignaturas, col).trim();
                 if (nombreAsig.isEmpty() || COLUMNAS_RESUMEN.contains(nombreAsig.toUpperCase()) || nombreAsig.equals("0")) {
                     continue;
@@ -383,7 +383,7 @@ public class ExcelHelper {
             Map<Integer, Integer> semestrePorColumna = new LinkedHashMap<>();
             if (filaNiveles != null) {
                 int maxCol = filaAsignaturas.getLastCellNum() - 1;
-                Integer currentSemestre = 1; // carry-forward
+                Integer currentSemestre = 1; 
                 for (int col = 10; col <= maxCol; col++) {
                     String nivelTexto = getCellValue(filaNiveles, col).trim();
                     if (!nivelTexto.isEmpty()) {
@@ -403,47 +403,35 @@ public class ExcelHelper {
                 Row row = sheet.getRow(i);
                 if (row == null || ExcelValidator.isRowEmpty(row)) continue;
 
-                String identificador = getCellValue(row, 3).trim(); // Col 3: IDENTIFICACIÓN
+                String identificador = getCellValue(row, 3).trim(); 
                 if (identificador.isEmpty()) continue;
 
-                String sexoRaw  = getCellValue(row, 6).trim().toUpperCase(); // Col 6: SEXO
+                String sexoRaw  = getCellValue(row, 6).trim().toUpperCase(); 
                 String sexo     = sexoRaw.isEmpty() ? "" : sexoRaw.substring(0, 1);
                 
-                // LEEMOS EL PARALELO DE LA FILA BASE (Col 8)
                 String paraleloBase = getCellValue(row, 8).trim().toUpperCase();
                 if (paraleloBase.isEmpty()) paraleloBase = paraleloGlobal;
                 if (paraleloBase.length() > 5) paraleloBase = paraleloBase.substring(0, 1);
 
-                // RECORRER CADA MATERIA EN LA QUE PODRÍA ESTAR MATRICULADO
                 for (Map.Entry<Integer, String> entry : asignaturasPorColumna.entrySet()) {
                     String estado = getCellValue(row, entry.getKey()).trim().toUpperCase();
 
-                    // 1. FILTRO ANTI-BASURA Y ANTI-HISTORIAL
-                    // Si está vacía, o tiene Aprobada (A), Reprobada (R), Pendiente (P) o un guion (-), ¡LA IGNORAMOS!
                     if (estado.isEmpty() || estado.equals("0") || estado.equals("-") ||
                         estado.equals("A") || estado.equals("R") || estado.equals("P")) {
                         continue;
                     }
 
-                    // 2. ASIGNACIÓN DEL PARALELO REAL
                     String paraleloFinalMateria;
-
                     if (estado.equals("M") || estado.equals("X")) {
-                        // Si pusieron la típica "M", usa el paralelo general de la columna 8
                         paraleloFinalMateria = paraleloBase;
                     } else if (estado.startsWith("M") && estado.length() == 2) {
-                        // NUEVO TRUCO PARA ARRASTRES: Si ponen "MB" o "MA"
-                        // Extraemos la segunda letra para saber el paralelo exacto
                         paraleloFinalMateria = estado.substring(1, 2);
                     } else if (estado.equals("B") || estado.equals("C")) {
-                        // Si pusieron la letra B o C suelta, la aceptamos
                         paraleloFinalMateria = estado;
                     } else {
-                        // Si tiene cualquier otra letra rara, la saltamos por seguridad
                         continue;
                     }
 
-                    // Obtenemos el semestre EXACTO de esa materia (no el del estudiante)
                     Integer semestreExacto = semestrePorColumna.getOrDefault(entry.getKey(), 1);
 
                     EnrollmentDetailLoadDTO detalle = new EnrollmentDetailLoadDTO();
@@ -457,7 +445,116 @@ public class ExcelHelper {
             }
             return detalles;
         } catch (Exception e) {
-            throw new RuntimeException("Error al parsear Excel de Matrículas: " + e.getMessage());
+            throw new RuntimeException("Error al parsear Excel .xlsx con POI: " + e.getMessage());
+        }
+    }
+    
+    // =====================================================================
+    // MATRICULA.xls
+    // =====================================================================
+    public static List<EnrollmentDetailLoadDTO> readWithEasyExcel(InputStream is) {
+        try {
+            List<EnrollmentDetailLoadDTO> detalles = new ArrayList<>();
+            
+            // Leemos todo el archivo de forma síncrona. headRowNumber(0) indica que lea desde la primera fila.
+            // Cada fila es un Map<ÍndiceColumna, ValorCelda>
+            List<Map<Integer, String>> todasLasFilas = com.alibaba.excel.EasyExcel.read(is)
+                    .sheet().headRowNumber(0).doReadSync();
+
+            if (todasLasFilas.size() <= 8) {
+                throw new RuntimeException("El archivo no tiene datos de estudiantes (faltan filas).");
+            }
+
+            // 1. PARALELO GLOBAL (Fila índice 7, Columna 8)
+            String paraleloGlobal = "A";
+            Map<Integer, String> filaParalelo = todasLasFilas.get(7);
+            String rawParalelo = filaParalelo.getOrDefault(8, "").trim().toUpperCase();
+            if (!rawParalelo.isEmpty()) {
+                String sinPrefijo = rawParalelo.replaceAll(".*PARALELO[:\\s]*", "").trim();
+                paraleloGlobal = sinPrefijo.isEmpty()
+                        ? String.valueOf(rawParalelo.charAt(rawParalelo.length() - 1))
+                        : String.valueOf(sinPrefijo.charAt(0));
+            }
+
+            // 2. LEER ASIGNATURAS (Fila índice 6)
+            Map<Integer, String> filaAsignaturas = todasLasFilas.get(6);
+            Map<Integer, String> asignaturasPorColumna = new LinkedHashMap<>();
+            // Calculamos la última columna que tenga datos en esa fila
+            int maxCol = filaAsignaturas.keySet().stream().max(Integer::compareTo).orElse(0);
+
+            for (int col = 10; col <= maxCol; col++) {
+                String nombreAsig = filaAsignaturas.getOrDefault(col, "").trim();
+                if (nombreAsig.isEmpty() || COLUMNAS_RESUMEN.contains(nombreAsig.toUpperCase()) || nombreAsig.equals("0")) {
+                    continue;
+                }
+                asignaturasPorColumna.put(col, nombreAsig);
+            }
+
+            // 3. LEER SEMESTRES EXACTOS POR MATERIA (Fila índice 7)
+            Map<Integer, String> filaNiveles = todasLasFilas.get(7);
+            Map<Integer, Integer> semestrePorColumna = new LinkedHashMap<>();
+            Integer currentSemestre = 1;
+            
+            for (int col = 10; col <= maxCol; col++) {
+                String nivelTexto = filaNiveles.getOrDefault(col, "").trim();
+                if (!nivelTexto.isEmpty()) {
+                    java.util.regex.Matcher mNivel = java.util.regex.Pattern.compile("\\d+").matcher(nivelTexto);
+                    if (mNivel.find()) {
+                        try { currentSemestre = Integer.parseInt(mNivel.group()); } catch (Exception ignored) {}
+                    }
+                }
+                if (asignaturasPorColumna.containsKey(col)) {
+                    semestrePorColumna.put(col, currentSemestre);
+                }
+            }
+
+            // 4. LEER ESTUDIANTES Y SUS MATRICULAS (Fila índice 8 en adelante)
+            for (int i = 8; i < todasLasFilas.size(); i++) {
+                Map<Integer, String> row = todasLasFilas.get(i);
+                
+                String identificador = row.getOrDefault(3, "").trim();
+                if (identificador.isEmpty()) continue; // Si no hay cédula, saltamos
+
+                String sexoRaw = row.getOrDefault(6, "").trim().toUpperCase();
+                String sexo = sexoRaw.isEmpty() ? "" : sexoRaw.substring(0, 1);
+                
+                String paraleloBase = row.getOrDefault(8, "").trim().toUpperCase();
+                if (paraleloBase.isEmpty()) paraleloBase = paraleloGlobal;
+                if (paraleloBase.length() > 5) paraleloBase = paraleloBase.substring(0, 1);
+
+                for (Map.Entry<Integer, String> entry : asignaturasPorColumna.entrySet()) {
+                    String estado = row.getOrDefault(entry.getKey(), "").trim().toUpperCase();
+
+                    if (estado.isEmpty() || estado.equals("0") || estado.equals("-") ||
+                        estado.equals("A") || estado.equals("R") || estado.equals("P")) {
+                        continue;
+                    }
+
+                    String paraleloFinalMateria;
+                    if (estado.equals("M") || estado.equals("X")) {
+                        paraleloFinalMateria = paraleloBase;
+                    } else if (estado.startsWith("M") && estado.length() == 2) {
+                        paraleloFinalMateria = estado.substring(1, 2);
+                    } else if (estado.equals("B") || estado.equals("C")) {
+                        paraleloFinalMateria = estado;
+                    } else {
+                        continue;
+                    }
+
+                    Integer semestreExacto = semestrePorColumna.getOrDefault(entry.getKey(), 1);
+
+                    EnrollmentDetailLoadDTO detalle = new EnrollmentDetailLoadDTO();
+                    detalle.setIdentificador(identificador);
+                    detalle.setSexo(sexo);
+                    detalle.setAsignatura(entry.getValue());
+                    detalle.setSemestre(semestreExacto);
+                    detalle.setParalelo(paraleloFinalMateria);
+                    detalles.add(detalle);
+                }
+            }
+            return detalles;
+        } catch (Exception e) {
+            throw new RuntimeException("Error al parsear Excel .xls con EasyExcel: " + e.getMessage());
         }
     }
     
@@ -592,91 +689,51 @@ public class ExcelHelper {
      * @param limit Máximo número de filas a retornar
      * @return Lista de TeachingDTO para este lote
      */
-    public static List<TeachingDTO> excelToTeachingBatch(InputStream is, int offset, int limit) {
-        try (Workbook workbook = WorkbookFactory.create(is)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            List<TeachingDTO> docentes = new ArrayList<>();
-            int skipped = 0;
-            int added = 0;
+    public static List<TeachingDTO> readTeachersWithEasyExcel(InputStream is) {
+    try {
+        List<TeachingDTO> docentes = new ArrayList<>();
+        
+        // headRowNumber(2) omite las filas 0 y 1 (los encabezados)
+        List<Map<Integer, String>> todasLasFilas = com.alibaba.excel.EasyExcel.read(is)
+                .sheet().headRowNumber(2).doReadSync();
 
-            // Datos empiezan en fila 2 (índice 2), filas 0-1 son encabezados
-            for (int i = 2; i <= sheet.getLastRowNum() && added < limit; i++) {
-                Row row = sheet.getRow(i);
-                if (row == null || isRowEmpty(row)) continue;
+        for (Map<Integer, String> row : todasLasFilas) {
+            
+            String coordinacion = row.getOrDefault(0, "").trim();
+            String carrera = row.getOrDefault(1, "").trim();
+            String nivel = row.getOrDefault(2, "").trim();
+            String materia = row.getOrDefault(3, "").trim();
+            String paralelo = row.getOrDefault(4, "").trim();
+            String nombreProfesor = row.getOrDefault(5, "").trim();
+            String correo = row.getOrDefault(6, "").trim();
 
-                String coordinacion = getCellValue(row, 0).trim();
-                String carrera = getCellValue(row, 1).trim();
-                String nivel = getCellValue(row, 2).trim();
-                String materia = getCellValue(row, 3).trim();
-                String paralelo = getCellValue(row, 4).trim();
-                String nombreProfesor = getCellValue(row, 5).trim();
-                String correo = getCellValue(row, 6).trim();
+            if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
+            if (nombreProfesor.isEmpty() && materia.isEmpty()) continue;
 
-                // Si no hay profesor, o dice "None", ignoramos la fila por completo
-                if (nombreProfesor.isEmpty() || nombreProfesor.equalsIgnoreCase("None")) continue;
-                if (nombreProfesor.isEmpty() && materia.isEmpty()) continue;
+            String[] partes = splitNombreApellido(nombreProfesor, true);
 
-                // Saltar filas hasta llegar al offset
-                if (skipped < offset) {
-                    skipped++;
-                    continue;
-                }
+            TeachingDTO docente = new TeachingDTO();
+            docente.setCoordinacionTexto(coordinacion);
+            docente.setCarreraTexto(carrera);
+            docente.setNivelTexto(nivel);
+            docente.setAsignaturaTexto(materia);
+            docente.setParaleloTexto(paralelo);
+            docente.setNombreCompleto(nombreProfesor);
+            docente.setApellidos(partes[0]);
+            docente.setNombres(partes[1]);
+            docente.setCorreo(correo);
 
-                // Nombre del profesor viene en APELLIDOS NOMBRES
-                String[] partes = splitNombreApellido(nombreProfesor, true);
-
-                TeachingDTO docente = new TeachingDTO();
-                docente.setCoordinacionTexto(coordinacion);
-                docente.setCarreraTexto(carrera);
-                docente.setNivelTexto(nivel);
-                docente.setAsignaturaTexto(materia);
-                docente.setParaleloTexto(paralelo);
-                docente.setNombreCompleto(nombreProfesor);
-                docente.setApellidos(partes[0]);
-                docente.setNombres(partes[1]);
-                docente.setCorreo(correo);
-
-                docentes.add(docente);
-                added++;
-            }
-            return docentes;
-        } catch (IOException e) {
-            throw new RuntimeException("Error al parsear lote de Docentes en Excel: " + e.getMessage());
+            docentes.add(docente);
         }
+        return docentes;
+    } catch (Exception e) {
+        throw new RuntimeException("Error al parsear Excel .xls de Docentes con EasyExcel: " + e.getMessage());
     }
+}
 
     // =====================================================================
     // LECTURA PAGINADA DE ESTUDIANTES (para mejorar rendimiento de carga)
     // =====================================================================
-    
-    /**
-     * Cuenta el número total de filas de estudiantes en el Excel.
-     * 
-     * @param is InputStream del archivo Excel
-     * @param carreraTexto parámetro no usado (se incluye solo por compatibilidad)
-     * @param modalidadTexto parámetro no usado (se incluye solo por compatibilidad)
-     * @return Número total de filas de datos de estudiantes disponibles
-     */
-    public static int countStudentRows(InputStream is, String carreraTexto, String modalidadTexto) {
-        try (Workbook workbook = WorkbookFactory.create(is)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            int count = 0;
-            
-            // Datos empiezan en fila 3 (índice 3)
-            for (int i = 3; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null || isRowEmpty(row)) continue;
-                
-                String identificacion = getCellValue(row, 1).trim();
-                if (identificacion.isEmpty()) continue;
-                
-                count++;
-            }
-            return count;
-        } catch (IOException e) {
-            throw new RuntimeException("Error al contar filas de Estudiantes en Excel: " + e.getMessage());
-        }
-    }
     
     /**
      * Lee estudiantes del Excel en lotes (paginación).
@@ -687,32 +744,25 @@ public class ExcelHelper {
      * @param modalidadTexto Modalidad por defecto
      * @return Lista de StudentLoadDTO para este lote
      */
-    public static List<StudentLoadDTO> excelToStudentsBatch(InputStream is, int offset, int limit, 
-            String carreraTexto, String modalidadTexto) {
-        try (Workbook workbook = WorkbookFactory.create(is)) {
-            Sheet sheet = workbook.getSheetAt(0);
+    public static List<StudentLoadDTO> readStudentsWithEasyExcel(InputStream is, String carreraTexto,
+            String modalidadTexto) {
+        try {
             List<StudentLoadDTO> estudiantes = new ArrayList<>();
-            int skipped = 0;
-            int added = 0;
 
-            // Datos empiezan en fila 3 (índice 3), filas 0-2 son encabezados
-            for (int i = 3; i <= sheet.getLastRowNum() && added < limit; i++) {
-                Row row = sheet.getRow(i);
-                if (row == null || isRowEmpty(row)) continue;
+            // headRowNumber(3) omite las filas 0, 1 y 2 (los encabezados)
+            List<Map<Integer, String>> todasLasFilas = com.alibaba.excel.EasyExcel.read(is)
+                    .sheet().headRowNumber(3).doReadSync();
 
-                String nombreCompleto = getCellValue(row, 0).trim();
-                String identificacion = getCellValue(row, 1).trim();
-                String correo = getCellValue(row, 2).trim();
-                String telefono1 = getCellValue(row, 3).trim();
-                String telefono2 = getCellValue(row, 4).trim();
+            for (Map<Integer, String> row : todasLasFilas) {
 
-                if (identificacion.isEmpty()) continue;
+                String nombreCompleto = row.getOrDefault(0, "").trim();
+                String identificacion = row.getOrDefault(1, "").trim();
+                String correo = row.getOrDefault(2, "").trim();
+                String telefono1 = row.getOrDefault(3, "").trim();
+                String telefono2 = row.getOrDefault(4, "").trim();
 
-                // Saltar filas hasta llegar al offset
-                if (skipped < offset) {
-                    skipped++;
+                if (identificacion.isEmpty())
                     continue;
-                }
 
                 // Combinar teléfonos si hay dos
                 String telefono = (!telefono2.isEmpty()) ? telefono1 + " / " + telefono2 : telefono1;
@@ -730,11 +780,10 @@ public class ExcelHelper {
                 estudiante.setModalidadTexto(modalidadTexto);
 
                 estudiantes.add(estudiante);
-                added++;
             }
             return estudiantes;
-        } catch (IOException e) {
-            throw new RuntimeException("Error al parsear lote de Estudiantes en Excel: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Error al parsear Excel .xls de Estudiantes con EasyExcel: " + e.getMessage());
         }
     }
 
