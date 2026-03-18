@@ -47,6 +47,17 @@ public class ExcelHelper {
         return false;
     }
 
+    /**
+     * Valida que el archivo sea Excel válido. Lanza IllegalArgumentException si no lo es.
+     */
+    public static void validateExcelFormat(MultipartFile file) {
+        if (!hasExcelFormat(file)) {
+            String filename = file != null ? file.getOriginalFilename() : "null";
+            throw new IllegalArgumentException(
+                    "Por favor, suba un archivo Excel válido (.xls o .xlsx). Archivo recibido: " + filename);
+        }
+    }
+
     // =====================================================================
     // ESTUDIANTES.xls
     // Formato:
