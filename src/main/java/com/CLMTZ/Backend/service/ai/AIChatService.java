@@ -97,6 +97,15 @@ public class AIChatService {
                     yield "{}";
                 }
             }
+            case "docente" -> {
+                try {
+                    Integer userId = UserContextHolder.getContext().getUserId();
+                    yield chatContextRepository.getDocenteContext(userId);
+                } catch (Exception e) {
+                    log.warn("[AIChatService] No se pudo obtener contexto de docente: {}", e.getMessage());
+                    yield "{}";
+                }
+            }
             default -> "{}";
         };
     }

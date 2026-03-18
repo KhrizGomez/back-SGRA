@@ -30,4 +30,20 @@ public class AIChatContextRepository {
                 String.class
         );
     }
+
+    public String getDocenteContext(Integer userId) {
+        try {
+            MapSqlParameterSource params = new MapSqlParameterSource("userId", userId);
+            String result = jdbc().queryForObject(
+                    "SELECT reforzamiento.fn_get_docente_chat_context(:userId)::text",
+                    params,
+                    String.class
+            );
+            return result != null ? result : "{}";
+        } catch (Exception e) {
+            log.warn("[AIChatContextRepository] fn_get_docente_chat_context no disponible (userId={}): {}",
+                    userId, e.getMessage());
+            return "{}";
+        }
+    }
 }
