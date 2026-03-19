@@ -128,6 +128,9 @@ public class TeacherRequestRepositoryImpl implements TeacherRequestRepository {
                         int sessionTypeId = rs.getInt("session_type_id");
                         item.setIsGroupal(sessionTypeId == 2); // 2 = grupal typically
                         item.setParticipantCount(rs.getInt("participant_count"));
+                        item.setPreferredDayName(rs.getString("preferred_day_name"));
+                        item.setPreferredStartTime(rs.getString("preferred_start_time"));
+                        item.setPreferredEndTime(rs.getString("preferred_end_time"));
                         items.add(item);
                 });
 

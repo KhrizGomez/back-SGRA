@@ -62,6 +62,9 @@ public class StudentMyRequestsRepositoryImpl implements StudentMyRequestsReposit
             item.setTeacherName(rs.getString("docente"));
             item.setSessionType(rs.getString("tipo"));
             item.setStatus(rs.getString("estado"));
+            item.setPreferredDayName(rs.getString("franja_dia"));
+            item.setPreferredStartTime(rs.getString("franja_inicio"));
+            item.setPreferredEndTime(rs.getString("franja_fin"));
 
             if (items.isEmpty()) {
                 totalCount[0] = rs.getLong("total_count");

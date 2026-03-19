@@ -18,4 +18,7 @@ public class TeacherRequestItemDTO {
     private String createdAt;
     private Boolean isGroupal;
     private Integer participantCount;
+    private String preferredDayName;
+    private String preferredStartTime;
+    private String preferredEndTime;
 }

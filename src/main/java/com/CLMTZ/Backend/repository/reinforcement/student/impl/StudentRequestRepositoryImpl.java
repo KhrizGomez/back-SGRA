@@ -27,9 +27,11 @@ public class StudentRequestRepositoryImpl implements StudentRequestRepository {
      */
     @Override
     public Integer createRequest(Integer userId, Integer subjectId, Integer teacherId,
-                                 Integer sessionTypeId, String reason, Integer periodId) {
+                                 Integer sessionTypeId, String reason, Integer periodId,
+                                 Short preferredDayOfWeek, Integer preferredTimeSlotId) {
         String sql = "SELECT reforzamiento.fn_in_nueva_solicitud_estudiante_v2(" +
-                ":userId, :subjectId, :teacherId, :sessionTypeId, :reason, :periodId)";
+                ":userId, :subjectId, :teacherId, :sessionTypeId, :reason, :periodId, " +
+                ":preferredDayOfWeek, :preferredTimeSlotId)";
 
         MapSqlParameterSource params = new MapSqlParameterSource();
         params.addValue("userId", userId);
@@ -38,6 +40,8 @@ public class StudentRequestRepositoryImpl implements StudentRequestRepository {
         params.addValue("sessionTypeId", sessionTypeId);
         params.addValue("reason", reason);
         params.addValue("periodId", periodId);
+        params.addValue("preferredDayOfWeek", preferredDayOfWeek);
+        params.addValue("preferredTimeSlotId", preferredTimeSlotId);
 
         Integer requestId = getJdbcTemplate().queryForObject(sql, params, Integer.class);
 

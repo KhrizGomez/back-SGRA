@@ -1,7 +1,9 @@
 package com.CLMTZ.Backend.controller.reinforcement.student;
 
+import com.CLMTZ.Backend.dto.reinforcement.TeacherAvailabilitySlotDTO;
 import com.CLMTZ.Backend.dto.reinforcement.student.*;
 import com.CLMTZ.Backend.service.reinforcement.student.StudentCatalogService;
+import com.CLMTZ.Backend.service.reinforcement.teacher.TeacherAvailabilityService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,9 +15,12 @@ import java.util.Map;
 public class StudentCatalogController {
 
     private final StudentCatalogService studentCatalogService;
+    private final TeacherAvailabilityService teacherAvailabilityService;
 
-    public StudentCatalogController(StudentCatalogService studentCatalogService) {
+    public StudentCatalogController(StudentCatalogService studentCatalogService,
+                                    TeacherAvailabilityService teacherAvailabilityService) {
         this.studentCatalogService = studentCatalogService;
+        this.teacherAvailabilityService = teacherAvailabilityService;
     }
 
     /**
@@ -85,6 +90,34 @@ public class StudentCatalogController {
             return ResponseEntity.ok(period);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("message", "Error al obtener periodo activo: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Obtiene las franjas horarias de disponibilidad del docente de una asignatura.
+     * Útil para que el estudiante vea cuándo puede solicitar refuerzo.
+     */
+    @GetMapping("/subjects/{subjectId}/teacher-availability")
+    public ResponseEntity<?> getTeacherAvailability(
+            @PathVariable("subjectId") Integer subjectId,
+            @RequestParam("periodId") Integer periodId) {
+        try {
+            if (subjectId == null || subjectId <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "ID de asignatura inválido"));
+            }
+            if (periodId == null || periodId <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "periodId inválido"));
+            }
+            StudentSubjectTeacherDTO teacher = studentCatalogService.getTeacherForSubject(subjectId);
+            if (teacher == null) {
+                return ResponseEntity.ok(List.of());
+            }
+            List<TeacherAvailabilitySlotDTO> slots =
+                    teacherAvailabilityService.getAvailabilityForStudent(teacher.getTeacherId(), periodId);
+            return ResponseEntity.ok(slots);
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("message", "Error al obtener disponibilidad del docente: " + e.getMessage()));
         }
     }
 

@@ -71,7 +71,9 @@ public class StudentRequestServiceImpl implements StudentRequestService {
                 teacher.getTeacherId(),
                 req.getSessionTypeId(),
                 req.getReason(),
-                activePeriod.getPeriodId()
+                activePeriod.getPeriodId(),
+                req.getPreferredDayOfWeek(),
+                req.getPreferredTimeSlotId()
         );
 
         // 4.1 Obtener resumen para notificaciones

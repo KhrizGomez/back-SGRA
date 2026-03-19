@@ -19,7 +19,8 @@ public interface StudentRequestRepository {
      * @return ID de la solicitud creada
      */
     Integer createRequest(Integer userId, Integer subjectId, Integer teacherId,
-                          Integer sessionTypeId, String reason, Integer periodId);
+                          Integer sessionTypeId, String reason, Integer periodId,
+                          Short preferredDayOfWeek, Integer preferredTimeSlotId);
 
     /**
      * Inserta participantes para una solicitud de sesión grupal.

@@ -16,4 +16,7 @@ public class StudentMyRequestItemDTO {
     private String teacherName;
     private String sessionType;
     private String status;
+    private String preferredDayName;
+    private String preferredStartTime;
+    private String preferredEndTime;
 }
