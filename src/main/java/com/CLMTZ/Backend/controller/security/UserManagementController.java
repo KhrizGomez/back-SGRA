@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/security/user-managements")
-@CrossOrigin(origins = "*")
 public class UserManagementController {
 
     private final IUserManagementService userManagementser;

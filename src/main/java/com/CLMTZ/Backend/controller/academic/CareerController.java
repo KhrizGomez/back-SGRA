@@ -2,7 +2,6 @@ package com.CLMTZ.Backend.controller.academic;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -37,8 +36,7 @@ public class CareerController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable("id") Integer id) { service.deleteById(id); return ResponseEntity.noContent().build(); }
 
-    @Autowired
-    private ICareerService careerService; // Inyectamos el servicio de carrera
+    private final ICareerService careerService; // Inyectamos el servicio de carrera
     
     @PostMapping("/upload-careers")
     public ResponseEntity<?> uploadCareers(@RequestParam("file") MultipartFile file) {

@@ -131,6 +131,8 @@ public class BackupController {
         return ResponseEntity.noContent().build();
     }
 
+    // ─── Restore extremos ────────────────────────────────────────────
+
     @PostMapping("/restorebd-no-existent")
     public ResponseEntity<Boolean> restoreDropBd(@RequestParam String fileName){
         Boolean success = backupService.restoreDropBd(fileName);
