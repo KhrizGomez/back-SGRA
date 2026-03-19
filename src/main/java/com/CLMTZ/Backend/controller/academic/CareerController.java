@@ -37,8 +37,7 @@ public class CareerController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable("id") Integer id) { service.deleteById(id); return ResponseEntity.noContent().build(); }
 
-    @Autowired
-    private ICareerService careerService; // Inyectamos el servicio de carrera
+    private final ICareerService careerService; // Inyectamos el servicio de carrera
     
     @PostMapping("/upload-careers")
     public ResponseEntity<?> uploadCareers(@RequestParam("file") MultipartFile file) {

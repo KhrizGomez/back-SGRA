@@ -63,6 +63,35 @@ O directamente desde IntelliJ IDEA con el botón ▶️.
 
 ---
 
+## 🧱 Inicialización única de BD (primer arranque)
+
+Si necesitas ejecutar `schema.sql` completo solo una vez desde la app:
+
+**1. Configura credenciales de bootstrap**
+- En `application-bootstrap-init.properties` (`spring.sql.init.username/password`) o
+- como secretos de Key Vault si decides externalizarlas.
+
+**2. Ejecuta solo el primer arranque con perfil `bootstrap-init`:**
+```
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=bootstrap-init"
+```
+
+Ese perfil desactiva `spring.sql.init` de Spring y usa `psql` para ejecutar `schema.sql`
+antes de inicializar JPA. Si ya existe la tabla marcador (`seguridad.tbroles`), no lo vuelve a ejecutar.
+
+> Si aparece `CreateProcess error=2` o `No se encontro el ejecutable 'psql'`, instala el cliente de PostgreSQL
+> o configura ruta completa en `application-bootstrap-init.properties`:
+> `bootstrap.psql.command=C:/Program Files/PostgreSQL/17/bin/psql.exe`
+
+**3. En arranques normales, no uses ese perfil:**
+```
+mvnw spring-boot:run
+```
+
+Con eso, la app ya no vuelve a correr `schema.sql` en corridas posteriores.
+
+---
+
 ## 🔐 Secretos en Azure Key Vault
 
 El proyecto usa `spring-cloud-azure-starter-keyvault-secrets` para cargar los secretos automáticamente al arrancar. No necesitas copiar ningún valor manualmente.
