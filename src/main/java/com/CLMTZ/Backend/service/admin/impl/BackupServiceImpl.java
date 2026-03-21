@@ -242,7 +242,7 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     @Override
     public BackupResultDTO restoreBackupToNewDatabase(String fileName, Boolean connect) {
         UserContext ctx = UserContextHolder.getContext();
-        String executedBy = ctx != null ? ctx.getUsername() : "Sistema";
+        String executedBy = ctx.getUsername();
 
         String pgRestore = findPgRestore();
         if (pgRestore == null) return fail("pg_restore no encontrado en el servidor.", executedBy);
