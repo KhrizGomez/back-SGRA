@@ -19,8 +19,8 @@ public class BackupLocalConfig {
     @Column(name = "idconfigrespaldolocal")
     private Integer id = 1;
 
-    @Column(name = "ruta", length = 500, nullable = false)
-    private String ruta;
+    @Column(name = "ruta", nullable = true)
+    private byte[] ruta;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idusuario")

@@ -46,6 +46,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -84,8 +85,12 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     private final BackupScheduler backupScheduler;
     private final DataSource dataSource;
     private final EntityManagerFactory entityManagerFactory;
+    private final JdbcTemplate jdbcTemplate;
 
     // @Value fields (Spring injection after constructor)
+    @Value("${sgra-master-key}")
+    private String masterKey;
+
     @Value("${spring.datasource.url}")
     private String datasourceUrl;
 
@@ -449,21 +454,34 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
     /** Guarda el archivo de backup en la ruta local configurada (solo para respaldos automáticos). */
     private void saveToLocalPath(String fileName) {
-        localConfigRepository.findById(1).ifPresentOrElse(config -> {
-            try {
-                java.nio.file.Path dir  = java.nio.file.Path.of(config.getRuta());
-                java.nio.file.Files.createDirectories(dir);
-                java.nio.file.Path dest = dir.resolve(fileName);
-                BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
-                BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
-                try (java.io.InputStream blobStream = blob.openInputStream()) {
-                    java.nio.file.Files.copy(blobStream, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                }
-                log.info("Backup '{}' guardado localmente en '{}'.", fileName, config.getRuta());
-            } catch (Exception e) {
-                log.error("No se pudo guardar backup local en '{}': {}", config.getRuta(), e.getMessage(), e);
+        if (masterKey == null || masterKey.isBlank()) {
+            log.warn("saveToLocalPath: masterKey no configurada — copia local omitida.");
+            return;
+        }
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM general.fn_sl_configrespaldolocal(?)", masterKey);
+        if (rows.isEmpty()) {
+            log.warn("saveToLocalPath: ruta local no configurada — copia local omitida.");
+            return;
+        }
+        String rutaDecriptada = (String) rows.get(0).get("ruta");
+        if (rutaDecriptada == null || rutaDecriptada.isBlank()) {
+            log.warn("saveToLocalPath: ruta local vacía — copia local omitida.");
+            return;
+        }
+        try {
+            java.nio.file.Path dir  = java.nio.file.Path.of(rutaDecriptada);
+            java.nio.file.Files.createDirectories(dir);
+            java.nio.file.Path dest = dir.resolve(fileName);
+            BlobContainerClient container = blobServiceClient.getBlobContainerClient(backupContainerName);
+            BlobClient blob = container.getBlobClient(BLOB_PREFIX + fileName);
+            try (java.io.InputStream blobStream = blob.openInputStream()) {
+                java.nio.file.Files.copy(blobStream, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
-        }, () -> log.warn("saveToLocalPath: ruta local no configurada — copia local omitida."));
+            log.info("Backup '{}' guardado localmente en '{}'.", fileName, rutaDecriptada);
+        } catch (Exception e) {
+            log.error("No se pudo guardar backup local en '{}': {}", rutaDecriptada, e.getMessage(), e);
+        }
     }
 
     // ─── Ejecución compartida ──────────────────────────────────────────────────
@@ -656,31 +674,34 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
 
     @Override
     public BackupLocalConfigDTO getLocalConfig() {
-        return localConfigRepository.findById(1)
-                .map(c -> new BackupLocalConfigDTO(
-                        c.getRuta(),
-                        c.getUsuario() != null ? c.getUsuario().getUserId() : null,
-                        c.getFechaConfiguracion() != null ? c.getFechaConfiguracion().format(DISPLAY_FMT) : null
-                ))
-                .orElse(null);
+        if (masterKey == null || masterKey.isBlank()) {
+            throw new RuntimeException("Master key no configurada en el sistema");
+        }
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM general.fn_sl_configrespaldolocal(?)", masterKey);
+        if (rows.isEmpty()) return null;
+        Map<String, Object> row = rows.get(0);
+        String fechaStr = null;
+        if (row.get("fecha_configuracion") != null) {
+            LocalDateTime fecha = ((java.sql.Timestamp) row.get("fecha_configuracion")).toLocalDateTime();
+            fechaStr = fecha.format(DISPLAY_FMT);
+        }
+        return new BackupLocalConfigDTO(
+                (String) row.get("ruta"),
+                (Integer) row.get("idusuario"),
+                fechaStr
+        );
     }
 
     @Override
     public BackupLocalConfigDTO saveLocalConfig(String ruta) {
-        BackupLocalConfig config = localConfigRepository.findById(1).orElse(new BackupLocalConfig());
-        config.setId(1);
-        config.setRuta(ruta);
-        config.setFechaConfiguracion(LocalDateTime.now());
-        UserContext ctx = UserContextHolder.getContext();
-        if (ctx != null && ctx.getUserId() != null) {
-            userRepository.findById(ctx.getUserId()).ifPresent(config::setUsuario);
+        if (masterKey == null || masterKey.isBlank()) {
+            throw new RuntimeException("Master key no configurada en el sistema");
         }
-        BackupLocalConfig saved = localConfigRepository.save(config);
-        return new BackupLocalConfigDTO(
-                saved.getRuta(),
-                saved.getUsuario() != null ? saved.getUsuario().getUserId() : null,
-                saved.getFechaConfiguracion() != null ? saved.getFechaConfiguracion().format(DISPLAY_FMT) : null
-        );
+        UserContext ctx = UserContextHolder.getContext();
+        Integer userId = (ctx != null) ? ctx.getUserId() : null;
+        jdbcTemplate.update("CALL general.sp_sv_configrespaldolocal(?, ?, ?)", ruta, userId, masterKey);
+        return getLocalConfig();
     }
 
     @Override
