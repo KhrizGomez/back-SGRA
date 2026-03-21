@@ -49,7 +49,7 @@ public class TeacherSessionRepositoryImpl implements TeacherSessionRepository {
             if (i > 0) {
                 sb.append(',');
             }
-            sb.append("{\"participantId\":")
+            sb.append("{\"participantid\":")
                     .append(item.getParticipantId())
                     .append(",\"attended\":")
                     .append(Boolean.TRUE.equals(item.getAttended()))
