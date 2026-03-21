@@ -31,5 +31,8 @@ public interface IBackupService {
     BackupBrowseDTO browseDirectory(String path);
 
     // Restore de casos extremos
-    Boolean restoreDropBd(String fileName); 
+    Boolean restoreDropBd(String fileName);
+
+    // Verificación de disponibilidad de la base de datos
+    boolean isDatabaseAvailable();
 }
