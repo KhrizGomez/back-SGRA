@@ -839,6 +839,12 @@ public class BackupServiceImpl implements IBackupService, ApplicationListener<Ap
     private record DbInfo(String host, int port, String name) { }
 
     @Override
+    public boolean isDatabaseAvailable() {
+        DbInfo db = parseUrl(datasourceUrl);
+        return databaseExists(db, db.name());
+    }
+
+    @Override
     public Boolean restoreDropBd(String fileName){
         HikariDataSource tempDs = null;
         try {

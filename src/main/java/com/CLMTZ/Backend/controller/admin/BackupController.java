@@ -131,6 +131,14 @@ public class BackupController {
         return ResponseEntity.noContent().build();
     }
 
+    // ─── Verificación de base de datos ──────────────────────────────────────────
+
+    @GetMapping("/db-check")
+    public ResponseEntity<Map<String, Object>> checkDatabase() {
+        boolean available = backupService.isDatabaseAvailable();
+        return ResponseEntity.ok(Map.of("available", available));
+    }
+
     // ─── Restore extremos ────────────────────────────────────────────
 
     @PostMapping("/restorebd-no-existent")
